@@ -104,17 +104,29 @@ if not df.empty:
     st.dataframe(
         df_filtered,
         column_config={
-            "no_urut": "No.", 
-            "id_pengaduan": "ID", 
-            "tanggal_masuk": st.column_config.DateColumn("Tgl Masuk", format="DD/MM/YYYY"),
-            "kl_tgl_surat": st.column_config.DateColumn("Tgl Surat Klarifikasi", format="DD/MM/YYYY"),
-            "bp_tgl_pelaksanaan": st.column_config.DateColumn("Tgl Bipartit", format="DD/MM/YYYY"),
-            "sa_tanggal": st.column_config.DateColumn("Tgl Selesai", format="DD/MM/YYYY"),
-            "dok_selesai": st.column_config.LinkColumn("Link Selesai"),
-            "dok_laporan": st.column_config.LinkColumn("Link Laporan"),
+            "no_urut": "No. Urut",
+            "id_pengaduan": "ID Pengaduan",
+            "tanggal_masuk": st.column_config.DateColumn("Tanggal Masuk", format="DD/MM/YYYY"),
+            "perihal": "Perihal",
+            "kategori": "Kategori",
+            "terlapor": "Pihak Terlapor",
+            "Status_Tampil": "Status Akhir",
+            "sa_tanggal": st.column_config.DateColumn("Tanggal Selesai", format="DD/MM/YYYY"),
+            "dok_selesai": st.column_config.LinkColumn("Unduh Dokumen"),
         },
-        use_container_width=True, 
-        hide_index=True
+        use_container_width=True,
+        hide_index=True,
+        # MASUKKAN KOLOM YANG INGIN DITAMPILKAN DI SINI:
+        column_order=(
+            "no_urut",
+            "id_pengaduan",
+            "tanggal_masuk",
+            "kategori",
+            "perihal",
+            "terlapor",
+            "Status_Tampil",
+            "dok_selesai",
+        ),
     )
 else:
     st.info("Belum ada data pengaduan. Silakan isi melalui menu di sidebar.")
