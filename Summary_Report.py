@@ -3,7 +3,51 @@ import pandas as pd
 import streamlit as st
 from io import BytesIO
 
-st.set_page_config(page_title="Sistem Informasi Pengaduan HI", page_icon="🏢", layout="wide")
+import streamlit as st
+
+st.set_page_config(
+    page_title="Summary Report Pengaduan", page_icon="📊", layout="wide"
+)
+
+# --- CSS KUSTOM UNTUK MEMPERCANTIK TAMPILAN & FONT ---
+st.markdown(
+    """
+    <style>
+    /* Mengubah ukuran font secara umum pada teks isi/paragraf */
+    p, li, span {
+        font-size: 15px !important;
+    }
+    
+    /* Memperbesar ukuran font judul utama (h1) */
+    h1 {
+        font-size: 28px !important;
+        font-weight: 700 !important;
+        color: #1f77b4;
+    }
+    
+    /* Memperbesar ukuran font sub-judul (h2 & h3) */
+    h2, h3 {
+        font-size: 20px !important;
+        font-weight: 600 !important;
+    }
+
+    /* Mempercantik kotak metrik (angka ringkasan) */
+    div[data-testid="metric-container"] {
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        padding: 12px 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    
+    /* Mengatur ukuran font isi tabel agar lebih pas */
+    .dataframe {
+        font-size: 14px !important;
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
 
 # ==========================
 # 1. SISTEM LOGIN & LOGOUT
