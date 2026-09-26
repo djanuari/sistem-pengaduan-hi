@@ -3,32 +3,87 @@ import pandas as pd
 import streamlit as st
 import datetime
 
+# 1. ATURAN UTAMA: st.set_page_config HARUS DI PALING ATAS
+st.set_page_config(
+    page_title="Halaman Input & Grafik", page_icon="📈", layout="wide"
+)
+
 if not st.session_state.get("logged_in"):
     st.warning("⚠️ Anda belum login. Silakan kembali ke halaman utama untuk login.")
     st.stop()
 
-st.set_page_config(page_title="Form Input Pengaduan", page_icon="📝", layout="wide")
+# 2. KONEKSI DATABASE
 conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
 
-st.title("📝 Form Isian Pengaduan HI")
+# 3. JUDUL HALAMAN
+st.title("📝 Form Isian & Pengelolaan Pengaduan HI")
+st.markdown("---")
+
+# --- CSS KUSTOM UNIVERSAL ---
+st.markdown(
+    """
+    <style>
+    p, label, span, .stTextInput, .stSelectbox {
+        font-size: 15px !important;
+    }
+    h1 {
+        font-size: 26px !important;
+        font-weight: 700 !important;
+        color: #2c3e50 !important;
+    }
+    h2, h3 {
+        font-size: 19px !important;
+        font-weight: 600 !important;
+        color: #34495e !important;
+    }
+    .stTextInput input, .stSelectbox select, .stDateInput input {
+        border-radius: 6px !important;
+    }
+    .stButton button {
+        border-radius: 6px !important;
+        font-weight: 600 !important;
+        width: 100%;
+    }
+    div[data-testid="metric-container"] {
+        background-color: #fdfefe;
+        border: 1px solid #d5dbdb;
+        padding: 10px 14px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
 
 # ==========================================
-# VARIABEL OPSI (WAJIB ADA DI SINI)
+# VARIABEL OPSI
 # ==========================================
 kategori_opsi = [
-    "Perselisihan Hak", "Perselisihan Kepentingan", 
-    "Perselisihan Pemutusan Hubungan Kerja (PHK)", 
-    "Perselisihan Antar Serikat Pekerja", "Lainnya"
+    "Perselisihan Hak",
+    "Perselisihan Kepentingan",
+    "Perselisihan Pemutusan Hubungan Kerja (PHK)",
+    "Perselisihan Antar Serikat Pekerja",
+    "Lainnya",
 ]
 status_opsi = ["Belum diproses", "Klarifikasi", "Bipartit", "Tripartit", "Selesai"]
-pilihan_selesai_opsi = ["-", "Perjanjian Bersama (PB)", "Anjuran Tertulis", "Gugatan Hukum ke Pengadilan Hubungan Industrial (PHI)"]
+pilihan_selesai_opsi = [
+    "-",
+    "Perjanjian Bersama (PB)",
+    "Anjuran Tertulis",
+    "Gugatan Hukum ke Pengadilan Hubungan Industrial (PHI)",
+]
 
 # Membuat 3 Tab Halaman
-tab1, tab2, tab3 = st.tabs(["➕ Input Data Baru", "✏️ Update / Edit Data", "🗑️ Hapus Data"])
+tab1, tab2, tab3 = st.tabs(
+    ["➕ Input Data Baru", "✏️ Update / Edit Data", "🗑️ Hapus Data"]
+)
+
 
 # Helper function untuk mengubah tanggal ke string
-def f_date(d): return str(d) if d else "-"
+def f_date(d):
+    return str(d) if d else "-"
 
 # ==========================================
 # TAB 1: INPUT DATA BARU
