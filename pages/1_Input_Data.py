@@ -3,87 +3,57 @@ import pandas as pd
 import streamlit as st
 import datetime
 
-# 1. ATURAN UTAMA: st.set_page_config HARUS DI PALING ATAS
-st.set_page_config(
-    page_title="Halaman Input & Grafik", page_icon="📈", layout="wide"
-)
-
 if not st.session_state.get("logged_in"):
     st.warning("⚠️ Anda belum login. Silakan kembali ke halaman utama untuk login.")
     st.stop()
 
-# 2. KONEKSI DATABASE
+st.set_page_config(page_title="Form Input Pengaduan", page_icon="📝", layout="wide")
 conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
 
-# 3. JUDUL HALAMAN
-st.title("📝 Form Isian & Pengelolaan Pengaduan HI")
-st.markdown("---")
-
-# --- CSS KUSTOM UNIVERSAL ---
-st.markdown(
-    """
-    <style>
-    p, label, span, .stTextInput, .stSelectbox {
-        font-size: 15px !important;
-    }
-    h1 {
-        font-size: 19px !important;
-        font-weight: 700 !important;
-        color: #2c3e50 !important;
-    }
-    h2, h3 {
-        font-size: 19px !important;
-        font-weight: 600 !important;
-        color: #34495e !important;
-    }
-    .stTextInput input, .stSelectbox select, .stDateInput input {
-        border-radius: 6px !important;
-    }
-    .stButton button {
-        border-radius: 6px !important;
-        font-weight: 600 !important;
-        width: 100%;
-    }
-    div[data-testid="metric-container"] {
-        background-color: #fdfefe;
-        border: 1px solid #d5dbdb;
-        padding: 10px 14px;
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-    </style>
-""",
-    unsafe_allow_html=True,
+# 1. Buat tabel utama jika belum ada
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS tabel_pengaduan (
+    no_urut INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_pengaduan TEXT UNIQUE
 )
+""")
+conn.commit()
 
-# ==========================================
-# VARIABEL OPSI
-# ==========================================
+# 2. Otomatis tambahkan kolom baru jika database lama belum memilikinya
+kolom_baru = [
+    ("tanggal_masuk", "TEXT"), ("perihal", "TEXT"), ("kategori", "TEXT"),
+    ("pelapor", "TEXT"), ("terlapor", "TEXT"), ("alamat", "TEXT"), ("no_telp", "TEXT"),
+    ("alamat_terlapor", "TEXT"), ("no_telp_terlapor", "TEXT"), ("mediator", "TEXT"),
+    ("status", "TEXT"), ("bd_ket", "TEXT"), ("kl_tgl_surat", "TEXT"),
+    ("kl_tgl_klarifikasi", "TEXT"), ("kl_ket", "TEXT"), ("bp_tgl_pelaksanaan", "TEXT"),
+    ("bp_ket", "TEXT"), ("tp_tgl_surat_1", "TEXT"), ("tp_tgl_1", "TEXT"), ("tp_ket_1", "TEXT"),
+    ("tp_tgl_surat_2", "TEXT"), ("tp_tgl_2", "TEXT"), ("tp_ket_2", "TEXT"),
+    ("tp_tgl_surat_3", "TEXT"), ("tp_tgl_3", "TEXT"), ("tp_ket_3", "TEXT"),
+    ("sa_tanggal", "TEXT"), ("sa_pilihan", "TEXT"), ("sa_ket", "TEXT"),
+    ("dok_laporan", "TEXT"), ("dok_selesai", "TEXT"), ("catatan", "TEXT")
+]
+
+for col_nama, col_tipe in kolom_baru:
+    try:
+        cursor.execute(f"ALTER TABLE tabel_pengaduan ADD COLUMN {col_nama} {col_tipe}")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # Kolom sudah ada
+
+st.title("📝 Form Isian Pengaduan HI")
+
 kategori_opsi = [
-    "Perselisihan Hak",
-    "Perselisihan Kepentingan",
-    "Perselisihan Pemutusan Hubungan Kerja (PHK)",
-    "Perselisihan Antar Serikat Pekerja",
-    "Lainnya",
+    "Perselisihan Hak", "Perselisihan Kepentingan", 
+    "Perselisihan Pemutusan Hubungan Kerja (PHK)", 
+    "Perselisihan Antar Serikat Pekerja", "Lainnya"
 ]
 status_opsi = ["Belum diproses", "Klarifikasi", "Bipartit", "Tripartit", "Selesai"]
-pilihan_selesai_opsi = [
-    "-",
-    "Perjanjian Bersama (PB)",
-    "Anjuran Tertulis",
-    "Gugatan Hukum ke Pengadilan Hubungan Industrial (PHI)",
-]
+pilihan_selesai_opsi = ["-", "Perjanjian Bersama (PB)", "Anjuran Tertulis", "Gugatan Hukum ke Pengadilan Hubungan Industrial (PHI)"]
 
-# Membuat 3 Tab Halaman
-tab1, tab2, tab3 = st.tabs(
-    ["➕ Input Data Baru", "✏️ Update / Edit Data", "🗑️ Hapus Data"]
-)
+tab1, tab2, tab3 = st.tabs(["➕ Input Data Baru", "✏️ Update / Edit Data", "🗑️ Hapus Data"])
 
-
-# Helper function untuk mengubah tanggal ke string
-def f_date(d):
-    return str(d) if d else "-"
+def f_date(d): return str(d) if d else "-"
 
 # ==========================================
 # TAB 1: INPUT DATA BARU
@@ -99,8 +69,17 @@ with tab1:
         kategori = st.selectbox("Kategori", kategori_opsi)
         
         c3, c4 = st.columns(2)
-        pelapor = c3.text_input("Pelapor")
-        terlapor = c4.text_input("Terlapor")
+        pelapor = c3.text_input("Pelapor / Pemohon")
+        terlapor = c4.text_input("Terlapor / Perusahaan")
+
+        c5, c6 = st.columns(2)
+        alamat = c5.text_area("Alamat Pelapor")
+        no_telp = c6.text_input("Nomor Telepon / Kontak Pelapor")
+
+        c7, c8, c9 = st.columns(3)
+        alamat_terlapor = c7.text_area("Alamat Terlapor")
+        no_telp_terlapor = c8.text_input("No. Telepon Terlapor")
+        mediator = c9.text_input("Mediator")
         
         st.markdown("---")
         st.subheader("Status Penanganan")
@@ -159,13 +138,15 @@ with tab1:
             try:
                 cursor.execute("""
                 INSERT INTO tabel_pengaduan (
-                    id_pengaduan, tanggal_masuk, perihal, kategori, pelapor, terlapor, status, bd_ket,
+                    id_pengaduan, tanggal_masuk, perihal, kategori, pelapor, terlapor, alamat, no_telp, 
+                    alamat_terlapor, no_telp_terlapor, mediator, status, bd_ket,
                     kl_tgl_surat, kl_tgl_klarifikasi, kl_ket, bp_tgl_pelaksanaan, bp_ket,
                     tp_tgl_surat_1, tp_tgl_1, tp_ket_1, tp_tgl_surat_2, tp_tgl_2, tp_ket_2, tp_tgl_surat_3, tp_tgl_3, tp_ket_3,
                     sa_tanggal, sa_pilihan, sa_ket, dok_laporan, dok_selesai, catatan
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """, (
-                    id_pengaduan, f_date(tanggal_masuk), perihal, kategori, pelapor, terlapor, status, bd_ket,
+                    id_pengaduan, f_date(tanggal_masuk), perihal, kategori, pelapor, terlapor, alamat, no_telp, 
+                    alamat_terlapor, no_telp_terlapor, mediator, status, bd_ket,
                     f_date(kl_tgl_surat), f_date(kl_tgl_klarifikasi), kl_ket, f_date(bp_tgl_pelaksanaan), bp_ket,
                     f_date(tp_tgl_surat_1), f_date(tp_tgl_1), tp_ket_1, f_date(tp_tgl_surat_2), f_date(tp_tgl_2), tp_ket_2, f_date(tp_tgl_surat_3), f_date(tp_tgl_3), tp_ket_3,
                     f_date(sa_tanggal), sa_pilihan, sa_ket, dok_laporan, dok_selesai, catatan
@@ -180,11 +161,11 @@ with tab1:
 # ==========================================
 with tab2:
     df_edit = pd.read_sql_query("SELECT id_pengaduan FROM tabel_pengaduan", conn)
+    
     if not df_edit.empty:
         id_pilihan = st.selectbox("Pilih ID Pengaduan yang ingin diedit:", df_edit["id_pengaduan"].tolist())
         df_row = pd.read_sql_query(f"SELECT * FROM tabel_pengaduan WHERE id_pengaduan = '{id_pilihan}'", conn).iloc[0]
         
-        # Helper fungsi untuk konversi nilai database kembali ke form
         def str_to_date(date_str):
             if pd.isna(date_str) or date_str == "-" or not date_str: return None
             try: return datetime.datetime.strptime(str(date_str), "%Y-%m-%d").date()
@@ -206,8 +187,17 @@ with tab2:
             u_kategori = st.selectbox("Kategori", kategori_opsi, index=kat_idx, key="e_kat")
             
             e_c3, e_c4 = st.columns(2)
-            u_pelapor = e_c3.text_input("Pelapor", value=safe_str(df_row['pelapor']), key="e_pel")
-            u_terlapor = e_c4.text_input("Terlapor", value=safe_str(df_row['terlapor']), key="e_ter")
+            u_pelapor = e_c3.text_input("Pelapor / Pemohon", value=safe_str(df_row['pelapor']), key="e_pel")
+            u_terlapor = e_c4.text_input("Terlapor / Perusahaan", value=safe_str(df_row['terlapor']), key="e_ter")
+
+            e_c5, e_c6 = st.columns(2)
+            u_alamat = e_c5.text_area("Alamat Pelapor", value=safe_str(df_row.get('alamat', '')), key="e_alamat")
+            u_no_telp = e_c6.text_input("Nomor Telepon / Kontak Pelapor", value=safe_str(df_row.get('no_telp', '')), key="e_notelp")
+
+            e_c7, e_c8, e_c9 = st.columns(3)
+            u_alamat_terlapor = e_c7.text_area("Alamat Terlapor", value=safe_str(df_row.get('alamat_terlapor', '')), key="e_alamatterlapor")
+            u_no_telp_terlapor = e_c8.text_input("No. Telepon Terlapor", value=safe_str(df_row.get('no_telp_terlapor', '')), key="e_notelpterlapor")
+            u_mediator = e_c9.text_input("Mediator", value=safe_str(df_row.get('mediator', '')), key="e_mediator")
             
             st.markdown("---")
             st.subheader("Status Penanganan")
@@ -265,14 +255,16 @@ with tab2:
             if submit_update:
                 cursor.execute("""
                     UPDATE tabel_pengaduan 
-                    SET tanggal_masuk=?, perihal=?, kategori=?, pelapor=?, terlapor=?, status=?, bd_ket=?,
+                    SET tanggal_masuk=?, perihal=?, kategori=?, pelapor=?, terlapor=?, alamat=?, no_telp=?, 
+                        alamat_terlapor=?, no_telp_terlapor=?, mediator=?, status=?, bd_ket=?,
                         kl_tgl_surat=?, kl_tgl_klarifikasi=?, kl_ket=?, bp_tgl_pelaksanaan=?, bp_ket=?,
                         tp_tgl_surat_1=?, tp_tgl_1=?, tp_ket_1=?, tp_tgl_surat_2=?, tp_tgl_2=?, tp_ket_2=?, tp_tgl_surat_3=?, tp_tgl_3=?, tp_ket_3=?,
                         sa_tanggal=?, sa_pilihan=?, sa_ket=?, dok_laporan=?, dok_selesai=?, catatan=?
                     WHERE id_pengaduan=?
                 """, (
-                    f_date(u_tanggal_masuk), u_perihal, u_kategori, u_pelapor, u_terlapor, u_status, u_bd_ket,
-                    f_date(u_kl_tgl_surat), f_date(u_kl_tgl_klarifikasi), u_kl_ket, f_date(u_bp_tgl_pelaksanaan), u_bp_ket,
+                    f_date(u_tanggal_masuk), u_perihal, u_kategori, u_pelapor, u_terlapor, u_alamat, u_no_telp, 
+                    u_alamat_terlapor, u_no_telp_terlapor, u_mediator, u_status, u_bd_ket,
+                    f_date(u_kl_tgl_surat), f_date(u_kl_tgl_klarifikasi), u_kl_ket, f_date(u_bp_tgl_pelaksanaan), bp_ket,
                     f_date(u_tp_tgl_surat_1), f_date(u_tp_tgl_1), u_tp_ket_1, f_date(u_tp_tgl_surat_2), f_date(u_tp_tgl_2), u_tp_ket_2, f_date(u_tp_tgl_surat_3), f_date(u_tp_tgl_3), u_tp_ket_3,
                     f_date(u_sa_tanggal), u_sa_pilihan, u_sa_ket, u_dok_laporan, u_dok_selesai, u_catatan,
                     id_pilihan
