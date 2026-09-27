@@ -1,176 +1,114 @@
 import sqlite3
 import pandas as pd
 import streamlit as st
-from io import BytesIO
 
-import streamlit as st
-
-st.set_page_config(
-    page_title="Summary Report Pengaduan", page_icon="📊", layout="wide"
-)
-
-# --- CSS KUSTOM UNTUK MEMPERCANTIK TAMPILAN & FONT ---
-st.markdown(
-    """
-    <style>
-    /* Mengubah ukuran font secara umum pada teks isi/paragraf */
-    p, li, span {
-        font-size: 15px !important;
-    }
-    
-    /* Memperbesar ukuran font judul utama (h1) */
-    h1 {
-        font-size: 28px !important;
-        font-weight: 700 !important;
-        color: #1f77b4;
-    }
-    
-    /* Memperbesar ukuran font sub-judul (h2 & h3) */
-    h2, h3 {
-        font-size: 20px !important;
-        font-weight: 600 !important;
-    }
-
-    /* Mempercantik kotak metrik (angka ringkasan) */
-    div[data-testid="metric-container"] {
-        background-color: #f8f9fa;
-        border: 1px solid #e9ecef;
-        padding: 12px 15px;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    }
-    
-    /* Mengatur ukuran font isi tabel agar lebih pas */
-    .dataframe {
-        font-size: 14px !important;
-    }
-    </style>
-""",
-    unsafe_allow_html=True,
-)
-
-# ==========================
-# 1. SISTEM LOGIN & LOGOUT
-# ==========================
+# 1. Wajib ada: Inisialisasi dan Penjaga Sesi Login
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
 
+# 2. Jika belum login, tampilkan form login
 if not st.session_state["logged_in"]:
     st.title("🔐 Login Sistem Informasi HI")
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         submit_login = st.form_submit_button("Login")
+        
         if submit_login:
             if username == "admin" and password == "admin123":
                 st.session_state["logged_in"] = True
                 st.rerun()
             else:
-                st.error("Username atau password salah!")
-    st.stop()
+                st.error("Username atau Password salah!")
+    st.stop() # Hentikan agar halaman utama tidak terbuka sebelum login
 
-# Tombol Logout di Sidebar (Hanya muncul jika sudah masuk)
+# Tombol Logout di Sidebar setelah berhasil masuk
 if st.sidebar.button("🚪 Logout"):
     st.session_state["logged_in"] = False
     st.rerun()
 
-# ==========================
-# 2. INISIALISASI DATABASE
-# ==========================
+st.set_page_config(page_title="Summary Report Pengaduan", page_icon="📊", layout="wide")
 conn = sqlite3.connect("database.db", check_same_thread=False)
-cursor = conn.cursor()
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS tabel_pengaduan (
-    no_urut INTEGER PRIMARY KEY AUTOINCREMENT,
-    id_pengaduan TEXT UNIQUE, tanggal_masuk TEXT, perihal TEXT, kategori TEXT,
-    pelapor TEXT, terlapor TEXT, status TEXT, bd_ket TEXT,
-    kl_tgl_surat TEXT, kl_tgl_klarifikasi TEXT, kl_ket TEXT,
-    bp_tgl_pelaksanaan TEXT, bp_ket TEXT,
-    tp_tgl_surat_1 TEXT, tp_tgl_1 TEXT, tp_ket_1 TEXT,
-    tp_tgl_surat_2 TEXT, tp_tgl_2 TEXT, tp_ket_2 TEXT,
-    tp_tgl_surat_3 TEXT, tp_tgl_3 TEXT, tp_ket_3 TEXT,
-    sa_tanggal TEXT, sa_pilihan TEXT, sa_ket TEXT,
-    dok_laporan TEXT, dok_selesai TEXT, catatan TEXT
-)
-""")
-conn.commit()
 
-# ==========================
-# 3. HALAMAN SUMMARY REPORT
-# ==========================
-st.title("📂 Arsip Rekapitulasi Pengaduan")
-st.markdown("---")
-
+st.title("📊 Summary Report & Rekapitulasi Pengaduan")
 df = pd.read_sql_query("SELECT * FROM tabel_pengaduan", conn)
 
 if not df.empty:
-    # Konversi dan Ekstraksi Tanggal untuk Filter
-    df["tanggal_masuk_dt"] = pd.to_datetime(df["tanggal_masuk"], errors='coerce')
-    df["Tahun"] = df["tanggal_masuk_dt"].dt.year.fillna(0).astype(int).astype(str)
+    st.markdown("### Daftar Seluruh Pengaduan Masuk")
     
-    bulan_dict = {
-        1: 'Januari', 2: 'Februari', 3: 'Maret', 4: 'April', 5: 'Mei', 6: 'Juni',
-        7: 'Juli', 8: 'Agustus', 9: 'September', 10: 'Oktober', 11: 'November', 12: 'Desember'
-    }
-    df["Bulan"] = df["tanggal_masuk_dt"].dt.month.map(bulan_dict)
+    # Filter pencarian sederhana
+    pencarian = st.text_input("🔍 Cari berdasarkan ID, Pelapor, atau Terlapor:")
+    if pencarian:
+        df_tampil = df[
+            df['id_pengaduan'].str.contains(pencarian, case=False, na=False) |
+            df['pelapor'].str.contains(pencarian, case=False, na=False) |
+            df['terlapor'].str.contains(pencarian, case=False, na=False)
+        ]
+    else:
+        df_tampil = df
 
-    # Status Tampil (Singkat)
-    def tentukan_status_tampil(row):
-        if row['status'] == "Selesai":
-            return f"Selesai: {row['sa_pilihan']}"
-        return row['status']
-    df["Status_Tampil"] = df.apply(tentukan_status_tampil, axis=1)
-
-    # Filter Tahun & Bulan
-    col1, col2 = st.columns(2)
-    daftar_tahun = [str(y) for y in range(2020, 2031)]
-    tahun_filter = col1.selectbox("Pilih Tahun:", ["Semua Tahun"] + daftar_tahun)
+    # Menampilkan Tabel Rekapitulasi Utama
+    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
     
-    daftar_bulan = ["Semua Bulan", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
-    bulan_filter = col2.selectbox("Pilih Bulan:", daftar_bulan)
+    st.markdown("---")
+    st.subheader("🔎 Lihat Detail Lengkap Berdasarkan ID Pengaduan")
+    
+    # Pilihan ID untuk melihat detail data secara spesifik
+    list_id = df["id_pengaduan"].tolist()
+    pilih_id = st.selectbox("Pilih ID Pengaduan untuk melihat rincian lengkap:", list_id)
+    
+    if pilih_id:
+        data_detail = df[df["id_pengaduan"] == pilih_id].iloc[0]
+        
+        # Tampilkan rincian data dalam bentuk kolom rapi
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            st.markdown(f"**ID Pengaduan:** {data_detail['id_pengaduan']}")
+            st.markdown(f"**Tanggal Masuk:** {data_detail['tanggal_masuk']}")
+            st.markdown(f"**Kategori:** {data_detail['kategori']}")
+            st.markdown(f"**Pelapor:** {data_detail['pelapor']} ({data_detail.get('no_telp', '-')})")
+            st.markdown(f"**Alamat Pelapor:** {data_detail.get('alamat', '-')}")
+        with col_d2:
+            st.markdown(f"**Terlapor:** {data_detail['terlapor']} ({data_detail.get('no_telp_terlapor', '-')})")
+            st.markdown(f"**Alamat Terlapor:** {data_detail.get('alamat_terlapor', '-')}")
+            st.markdown(f"**Mediator:** {data_detail.get('mediator', '-')}")
+            st.markdown(f"**Status Saat Ini:** `{data_detail['status']}`")
+            
+        st.markdown(f"**Perihal:** {data_detail['perihal']}")
+        
+        # Menampilkan Link Dokumen agar bisa diklik langsung
+        st.markdown("---")
+        st.markdown("📂 **Tautan Dokumen Terkait:**")
+        
+        link_lap = data_detail.get('dok_laporan', '')
+        link_sel = data_detail.get('dok_selesai', '')
+        
+        col_l1, col_l2 = st.columns(2)
+        with col_l1:
+            if link_lap and str(link_lap).startswith("http"):
+                st.markdown(f"- [Buka Dokumen Laporan]({link_lap})")
+            else:
+                st.markdown("- Dokumen Laporan: *Belum diunggah / Bukan link valid*")
+        with col_l2:
+            if link_sel and str(link_sel).startswith("http"):
+                st.markdown(f"- [Buka Laporan Selesai]({link_sel})")
+            else:
+                st.markdown("- Laporan Selesai: *Belum diunggah / Bukan link valid*")
 
-    df_filtered = df.copy()
-    if tahun_filter != "Semua Tahun": 
-        df_filtered = df_filtered[df_filtered["Tahun"] == tahun_filter]
-    if bulan_filter != "Semua Bulan": 
-        df_filtered = df_filtered[df_filtered["Bulan"] == bulan_filter]
-
-    # Tombol Download Excel
-    col3, col4 = st.columns(2)
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        # Menghapus kolom bantuan (helper) sebelum diexport
-        df_filtered.drop(columns=['tanggal_masuk_dt', 'Tahun', 'Bulan', 'Status_Tampil']).to_excel(writer, index=False, sheet_name='Arsip_Pengaduan')
-    excel_data = output.getvalue()
-    col3.download_button("📥 Export ke Excel", data=excel_data, file_name="Arsip_Pengaduan.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
-    # Tampilan Tabel (Menampilkan Seluruh Kolom di Layar)
-    st.dataframe(
-        df_filtered,
-        column_config={
-            "no_urut": "No. Urut",
-            "id_pengaduan": "ID Pengaduan",
-            "tanggal_masuk": st.column_config.DateColumn("Tanggal Masuk", format="DD/MM/YYYY"),
-            "perihal": "Perihal",
-            "kategori": "Kategori",
-            "terlapor": "Pihak Terlapor",
-            "Status_Tampil": "Status Akhir",
-            "sa_tanggal": st.column_config.DateColumn("Tanggal Selesai", format="DD/MM/YYYY"),
-            "dok_selesai": st.column_config.LinkColumn("Unduh Dokumen"),
-        },
-        use_container_width=True,
-        hide_index=True,
-        # MASUKKAN KOLOM YANG INGIN DITAMPILKAN DI SINI:
-        column_order=(
-            "no_urut",
-            "id_pengaduan",
-            "tanggal_masuk",
-            "kategori",
-            "perihal",
-            "terlapor",
-            "Status_Tampil",
-            "dok_selesai",
-        ),
-    )
 else:
-    st.info("Belum ada data pengaduan. Silakan isi melalui menu di sidebar.")
+    st.info("Belum ada data pengaduan yang tersimpan di dalam database.")
+
+# Menu Sidebar untuk Backup Database
+st.sidebar.markdown("---")
+st.sidebar.subheader("💾 Pencadangan Data")
+try:
+    with open("database.db", "rb") as f:
+        db_bytes = f.read()
+    st.sidebar.download_button(
+        label="📥 Unduh Backup Database",
+        data=db_bytes,
+        file_name="database_backup.db",
+        mime="application/octet-stream"
+    )
+except FileNotFoundError:
+    pass
