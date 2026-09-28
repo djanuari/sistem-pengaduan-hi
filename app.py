@@ -37,7 +37,7 @@ if not st.session_state.logged_in:
             
             if submit:
                 # Ganti username & password sesuai keinginan Anda di sini
-                if username == "admin" and password == "12345":
+                if username == "admin" and password == "admin123":
                     st.session_state.logged_in = True
                     st.success("Login Berhasil!")
                     st.rerun()
