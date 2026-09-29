@@ -2,62 +2,25 @@ import datetime
 import sqlite3
 import pandas as pd
 import streamlit as st
-# --- LETAKKAN DI BARIS PALING ATAS SETELAH IMPORT ---
-if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
-    st.warning("⚠️ Anda belum login. Silakan login terlebih dahulu melalui halaman utama (app.py).")
-    st.stop()
-st.set_page_config(
-    page_title="Form Input & Pengelolaan Pengaduan", page_icon="📝", layout="wide"
-)
 
+if not st.session_state.get("logged_in"):
+  st.warning("⚠️ Anda belum login. Silakan kembali ke halaman utama untuk login.")
+  st.stop()
+
+st.set_page_config(
+    page_title="Form Input & Edit Pengaduan", page_icon="📝", layout="wide"
+)
 conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
 
-# Pastikan tabel dan seluruh kolom pendukungnya ada
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS tabel_pengaduan (
-    no_urut INTEGER PRIMARY KEY AUTOINCREMENT,
-    id_pengaduan TEXT UNIQUE
-)
-""")
-conn.commit()
-
-kolom_pendukung = [
-    ("tanggal_masuk", "TEXT"),
-    ("perihal", "TEXT"),
-    ("kategori", "TEXT"),
-    ("pelapor", "TEXT"),
-    ("terlapor", "TEXT"),
-    ("alamat", "TEXT"),
-    ("no_telp", "TEXT"),
-    ("alamat_terlapor", "TEXT"),
-    ("no_telp_terlapor", "TEXT"),
-    ("mediator", "TEXT"),
-    ("status", "TEXT"),
-    ("bd_ket", "TEXT"),
-    ("kl_tgl_surat", "TEXT"),
-    ("kl_tgl_klarifikasi", "TEXT"),
-    ("kl_ket", "TEXT"),
-    ("bp_tgl_pelaksanaan", "TEXT"),
-    ("bp_ket", "TEXT"),
-    ("tp_tgl_surat_1", "TEXT"),
-    ("tp_tgl_1", "TEXT"),
-    ("tp_ket_1", "TEXT"),
-    ("tp_tgl_surat_2", "TEXT"),
-    ("tp_tgl_2", "TEXT"),
-    ("tp_ket_2", "TEXT"),
-    ("tp_tgl_surat_3", "TEXT"),
-    ("tp_tgl_3", "TEXT"),
-    ("tp_ket_3", "TEXT"),
-    ("sa_tanggal", "TEXT"),
-    ("sa_pilihan", "TEXT"),
-    ("sa_ket", "TEXT"),
-    ("dok_laporan", "TEXT"),
-    ("dok_selesai", "TEXT"),
-    ("catatan", "TEXT"),
+# Memastikan kolom baru otomatis ada di database secara aman
+kolom_tambahan = [
+    ("nik_pelapor", "TEXT"),
+    ("email_terlapor", "TEXT"),
+    ("nib_terlapor", "TEXT"),
+    ("jenis_usaha_terlapor", "TEXT"),
 ]
-
-for col_nama, col_tipe in kolom_pendukung:
+for col_nama, col_tipe in kolom_tambahan:
   try:
     cursor.execute(
         f"ALTER TABLE tabel_pengaduan ADD COLUMN {col_nama} {col_tipe}"
@@ -66,8 +29,7 @@ for col_nama, col_tipe in kolom_pendukung:
   except sqlite3.OperationalError:
     pass
 
-st.title("📝 Form Isian & Pengelolaan Pengaduan Hubungan Industrial")
-st.markdown("---")
+st.title("📝 Form Isian & Pengelolaan Pengaduan HI")
 
 kategori_opsi = [
     "Perselisihan Hak",
@@ -77,11 +39,13 @@ kategori_opsi = [
     "Lainnya",
 ]
 status_opsi = ["Belum diproses", "Klarifikasi", "Bipartit", "Tripartit", "Selesai"]
+
+# Opsi pilihan penyelesaian yang sudah diperbarui
 pilihan_selesai_opsi = [
     "-",
     "Perjanjian Bersama (PB)",
     "Anjuran Tertulis",
-    "Gugatan Hukum ke Pengadilan Hubungan Industrial (PHI)",
+    "Laporan Dibatalkan / Pencabutan Laporan",
 ]
 
 tab1, tab2, tab3 = st.tabs(
@@ -110,27 +74,38 @@ def safe_str(val):
 # TAB 1: INPUT DATA BARU
 # ==========================================
 with tab1:
+  st.subheader("Tambah Data Pengaduan Baru")
   with st.form("form_tambah_baru", clear_on_submit=True):
-    st.subheader("Data Dasar Pengaduan")
     c1, c2 = st.columns(2)
     id_pengaduan = c1.text_input("ID Pengaduan")
-    tanggal_masuk = c2.date_input("Tanggal Masuk", format="DD/MM/YYYY")
+    tanggal_masuk = c2.date_input("Tanggal Masuk")
 
     perihal = st.text_area("Perihal")
     kategori = st.selectbox("Kategori", kategori_opsi)
 
+    st.markdown("**Informasi Pelapor**")
     c3, c4 = st.columns(2)
     pelapor = c3.text_input("Pelapor / Pemohon")
-    terlapor = c4.text_input("Terlapor / Perusahaan")
+    nik_pelapor = c4.text_input("NIK Pelapor")
 
     c5, c6 = st.columns(2)
     alamat = c5.text_area("Alamat Pelapor")
     no_telp = c6.text_input("Nomor Telepon / Kontak Pelapor")
 
-    c7, c8, c9 = st.columns(3)
+    st.markdown("**Informasi Terlapor / Perusahaan**")
+    t1, t2 = st.columns(2)
+    terlapor = t1.text_input("Terlapor / Perusahaan")
+    email_terlapor = t2.text_input("Email Perusahaan Terlapor")
+
+    t3, t4 = st.columns(2)
+    nib_terlapor = t3.text_input("NIB Terlapor")
+    jenis_usaha_terlapor = t4.text_input("Jenis Usaha Terlapor")
+
+    c7, c8 = st.columns(2)
     alamat_terlapor = c7.text_area("Alamat Terlapor")
     no_telp_terlapor = c8.text_input("No. Telepon Terlapor")
-    mediator = c9.text_input("Mediator")
+
+    mediator = st.text_input("Mediator")
 
     st.markdown("---")
     st.subheader("Status Penanganan")
@@ -139,56 +114,38 @@ with tab1:
 
     st.markdown("**Data Klarifikasi**")
     kl1, kl2 = st.columns(2)
-    kl_tgl_surat = kl1.date_input(
-        "Tanggal Surat Undangan (Klarifikasi)", value=None, format="DD/MM/YYYY"
-    )
-    kl_tgl_klarifikasi = kl2.date_input(
-        "Tanggal Klarifikasi", value=None, format="DD/MM/YYYY"
-    )
+    kl_tgl_surat = kl1.date_input("Tanggal Surat Undangan (Klarifikasi)", value=None)
+    kl_tgl_klarifikasi = kl2.date_input("Tanggal Klarifikasi", value=None)
     kl_ket = st.text_area("Keterangan (Klarifikasi)")
 
     st.markdown("**Data Bipartit**")
     bp_tgl_pelaksanaan = st.date_input(
-        "Tanggal Pelaksanaan (Bipartit)", value=None, format="DD/MM/YYYY"
+        "Tanggal Pelaksanaan (Bipartit)", value=None
     )
     bp_ket = st.text_area("Keterangan (Bipartit)")
 
     st.markdown("**Data Tripartit (Mediasi 1)**")
     tp1, tp2 = st.columns(2)
-    tp_tgl_surat_1 = tp1.date_input(
-        "Tgl Surat Med 1", value=None, format="DD/MM/YYYY"
-    )
-    tp_tgl_1 = tp2.date_input(
-        "Tgl Pelaksanaan Med 1", value=None, format="DD/MM/YYYY"
-    )
+    tp_tgl_surat_1 = tp1.date_input("Tgl Surat Med 1", value=None)
+    tp_tgl_1 = tp2.date_input("Tgl Pelaksanaan Med 1", value=None)
     tp_ket_1 = st.text_area("Keterangan Med 1")
 
     st.markdown("**Data Tripartit (Mediasi 2)**")
     tp4, tp5 = st.columns(2)
-    tp_tgl_surat_2 = tp4.date_input(
-        "Tgl Surat Med 2", value=None, format="DD/MM/YYYY"
-    )
-    tp_tgl_2 = tp5.date_input(
-        "Tgl Pelaksanaan Med 2", value=None, format="DD/MM/YYYY"
-    )
+    tp_tgl_surat_2 = tp4.date_input("Tgl Surat Med 2", value=None)
+    tp_tgl_2 = tp5.date_input("Tgl Pelaksanaan Med 2", value=None)
     tp_ket_2 = st.text_area("Keterangan Med 2")
 
     st.markdown("**Data Tripartit (Mediasi 3)**")
     tp7, tp8 = st.columns(2)
-    tp_tgl_surat_3 = tp7.date_input(
-        "Tgl Surat Med 3", value=None, format="DD/MM/YYYY"
-    )
-    tp_tgl_3 = tp8.date_input(
-        "Tgl Pelaksanaan Med 3", value=None, format="DD/MM/YYYY"
-    )
+    tp_tgl_surat_3 = tp7.date_input("Tgl Surat Med 3", value=None)
+    tp_tgl_3 = tp8.date_input("Tgl Pelaksanaan Med 3", value=None)
     tp_ket_3 = st.text_area("Keterangan Med 3")
 
     st.markdown("---")
     st.subheader("Status Akhir (Jika Selesai)")
     sa1, sa2 = st.columns(2)
-    sa_tanggal = sa1.date_input(
-        "Tanggal Selesai", value=None, format="DD/MM/YYYY"
-    )
+    sa_tanggal = sa1.date_input("Tanggal Selesai", value=None)
     sa_pilihan = sa2.selectbox("Pilihan Penyelesaian", pilihan_selesai_opsi)
     sa_ket = st.text_area("Keterangan Status Selesai")
 
@@ -209,12 +166,12 @@ with tab1:
         cursor.execute(
             """
                 INSERT INTO tabel_pengaduan (
-                    id_pengaduan, tanggal_masuk, perihal, kategori, pelapor, terlapor, alamat, no_telp, 
+                    id_pengaduan, tanggal_masuk, perihal, kategori, pelapor, nik_pelapor, terlapor, email_terlapor, nib_terlapor, jenis_usaha_terlapor, alamat, no_telp,
                     alamat_terlapor, no_telp_terlapor, mediator, status, bd_ket,
                     kl_tgl_surat, kl_tgl_klarifikasi, kl_ket, bp_tgl_pelaksanaan, bp_ket,
                     tp_tgl_surat_1, tp_tgl_1, tp_ket_1, tp_tgl_surat_2, tp_tgl_2, tp_ket_2, tp_tgl_surat_3, tp_tgl_3, tp_ket_3,
                     sa_tanggal, sa_pilihan, sa_ket, dok_laporan, dok_selesai, catatan
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
             (
                 id_pengaduan,
@@ -222,7 +179,11 @@ with tab1:
                 perihal,
                 kategori,
                 pelapor,
+                nik_pelapor,
                 terlapor,
+                email_terlapor,
+                nib_terlapor,
+                jenis_usaha_terlapor,
                 alamat,
                 no_telp,
                 alamat_terlapor,
@@ -255,227 +216,330 @@ with tab1:
         conn.commit()
         st.success(f"Berhasil! Data {id_pengaduan} disimpan.")
       except sqlite3.IntegrityError:
-        st.error(
-            "Gagal: ID Pengaduan sudah ada! Gunakan tab Edit jika ingin"
-            " memperbarui."
-        )
+        st.error("Gagal: ID Pengaduan sudah ada!")
 
 # ==========================================
-# TAB 2: EDIT DATA
+# TAB 2: EDIT DATA SECARA KESELURUHAN
 # ==========================================
 with tab2:
   df_edit = pd.read_sql_query("SELECT id_pengaduan FROM tabel_pengaduan", conn)
+
   if not df_edit.empty:
     id_pilihan = st.selectbox(
         "Pilih ID Pengaduan yang ingin diedit:",
         df_edit["id_pengaduan"].tolist(),
-        key="sel_edit_id",
-    )
-    df_row_res = pd.read_sql_query(
-        f"SELECT * FROM tabel_pengaduan WHERE id_pengaduan = '{id_pilihan}'",
-        conn,
+        key="select_edit_id_unik",
     )
 
-    if not df_row_res.empty:
-      df_row = df_row_res.iloc[0]
-      st.info(f"Mengedit Data untuk ID: **{id_pilihan}**")
+    query_row = f"SELECT * FROM tabel_pengaduan WHERE id_pengaduan = '{id_pilihan}'"
+    df_row_result = pd.read_sql_query(query_row, conn)
 
-      with st.form("form_update"):
-        u_tanggal_masuk = st.date_input(
-            "Tanggal Masuk",
-            value=str_to_date(df_row["tanggal_masuk"]),
-            format="DD/MM/YYYY",
-        )
-        u_perihal = st.text_area(
-            "Perihal", value=safe_str(df_row["perihal"])
-        )
+    if not df_row_result.empty:
+      df_row = df_row_result.iloc[0]
 
-        kat_idx = (
-            kategori_opsi.index(df_row["kategori"])
-            if df_row["kategori"] in kategori_opsi
-            else 0
-        )
-        u_kategori = st.selectbox("Kategori", kategori_opsi, index=kat_idx)
+      st.info(f"Mengedit Keseluruhan Data untuk ID: **{id_pilihan}**")
 
-        u_pelapor = st.text_input(
-            "Pelapor / Pemohon", value=safe_str(df_row["pelapor"])
-        )
-        u_terlapor = st.text_input(
-            "Terlapor / Perusahaan", value=safe_str(df_row["terlapor"])
-        )
-        u_alamat = st.text_area(
-            "Alamat Pelapor", value=safe_str(df_row.get("alamat", ""))
-        )
-        u_no_telp = st.text_input(
-            "No. Telepon Pelapor", value=safe_str(df_row.get("no_telp", ""))
-        )
-        u_alamat_terlapor = st.text_area(
-            "Alamat Terlapor",
-            value=safe_str(df_row.get("alamat_terlapor", "")),
-        )
-        u_no_telp_terlapor = st.text_input(
-            "No. Telepon Terlapor",
-            value=safe_str(df_row.get("no_telp_terlapor", "")),
-        )
-        u_mediator = st.text_input(
-            "Mediator", value=safe_str(df_row.get("mediator", ""))
-        )
+      st.subheader("Data Dasar Pengaduan")
+      e_c1, e_c2 = st.columns(2)
+      e_c1.text_input(
+          "ID Pengaduan (Tidak bisa diubah)",
+          value=df_row["id_pengaduan"],
+          disabled=True,
+          key=f"u_id_{id_pilihan}",
+      )
+      u_tanggal_masuk = e_c2.date_input(
+          "Tanggal Masuk",
+          value=str_to_date(df_row["tanggal_masuk"]),
+          key=f"u_tgl_{id_pilihan}",
+      )
 
-        stat_idx = (
-            status_opsi.index(df_row["status"])
-            if df_row["status"] in status_opsi
-            else 0
-        )
-        u_status = st.selectbox("Status Berjalan", status_opsi, index=stat_idx)
-        u_bd_ket = st.text_area(
-            "Keterangan (Belum diproses)", value=safe_str(df_row["bd_ket"])
-        )
+      u_perihal = st.text_area(
+          "Perihal",
+          value=safe_str(df_row["perihal"]),
+          key=f"u_perihal_{id_pilihan}",
+      )
 
-        u_kl_tgl_surat = st.date_input(
-            "Tanggal Surat Undangan (Klarifikasi)",
-            value=str_to_date(df_row["kl_tgl_surat"]),
-            format="DD/MM/YYYY",
-        )
-        u_kl_tgl_klarifikasi = st.date_input(
-            "Tanggal Klarifikasi",
-            value=str_to_date(df_row["kl_tgl_klarifikasi"]),
-            format="DD/MM/YYYY",
-        )
-        u_kl_ket = st.text_area(
-            "Keterangan (Klarifikasi)", value=safe_str(df_row["kl_ket"])
-        )
+      kat_idx = (
+          kategori_opsi.index(df_row["kategori"])
+          if df_row["kategori"] in kategori_opsi
+          else 0
+      )
+      u_kategori = st.selectbox(
+          "Kategori",
+          kategori_opsi,
+          index=kat_idx,
+          key=f"u_kat_{id_pilihan}",
+      )
 
-        u_bp_tgl_pelaksanaan = st.date_input(
-            "Tanggal Pelaksanaan (Bipartit)",
-            value=str_to_date(df_row["bp_tgl_pelaksanaan"]),
-            format="DD/MM/YYYY",
-        )
-        u_bp_ket = st.text_area(
-            "Keterangan (Bipartit)", value=safe_str(df_row["bp_ket"])
-        )
+      st.markdown("**Informasi Pelapor**")
+      e_c3, e_c4 = st.columns(2)
+      u_pelapor = e_c3.text_input(
+          "Pelapor / Pemohon",
+          value=safe_str(df_row["pelapor"]),
+          key=f"u_pel_{id_pilihan}",
+      )
+      u_nik_pelapor = e_c4.text_input(
+          "NIK Pelapor",
+          value=safe_str(df_row.get("nik_pelapor", "")),
+          key=f"u_nik_{id_pilihan}",
+      )
 
-        u_tp_tgl_surat_1 = st.date_input(
-            "Tgl Surat Med 1",
-            value=str_to_date(df_row["tp_tgl_surat_1"]),
-            format="DD/MM/YYYY",
-        )
-        u_tp_tgl_1 = st.date_input(
-            "Tgl Pelaksanaan Med 1",
-            value=str_to_date(df_row["tp_tgl_1"]),
-            format="DD/MM/YYYY",
-        )
-        u_tp_ket_1 = st.text_area(
-            "Keterangan Med 1", value=safe_str(df_row["tp_ket_1"])
-        )
+      e_c5, e_c6 = st.columns(2)
+      u_alamat = e_c5.text_area(
+          "Alamat Pelapor",
+          value=safe_str(df_row.get("alamat", "")),
+          key=f"u_alamat_{id_pilihan}",
+      )
+      u_no_telp = e_c6.text_input(
+          "Nomor Telepon / Kontak Pelapor",
+          value=safe_str(df_row.get("no_telp", "")),
+          key=f"u_notelp_{id_pilihan}",
+      )
 
-        u_tp_tgl_surat_2 = st.date_input(
-            "Tgl Surat Med 2",
-            value=str_to_date(df_row["tp_tgl_surat_2"]),
-            format="DD/MM/YYYY",
-        )
-        u_tp_tgl_2 = st.date_input(
-            "Tgl Pelaksanaan Med 2",
-            value=str_to_date(df_row["tp_tgl_2"]),
-            format="DD/MM/YYYY",
-        )
-        u_tp_ket_2 = st.text_area(
-            "Keterangan Med 2", value=safe_str(df_row["tp_ket_2"])
-        )
+      st.markdown("**Informasi Terlapor / Perusahaan**")
+      u_t1, u_t2 = st.columns(2)
+      u_terlapor = u_t1.text_input(
+          "Terlapor / Perusahaan",
+          value=safe_str(df_row["terlapor"]),
+          key=f"u_ter_{id_pilihan}",
+      )
+      u_email_terlapor = u_t2.text_input(
+          "Email Perusahaan Terlapor",
+          value=safe_str(df_row.get("email_terlapor", "")),
+          key=f"u_email_{id_pilihan}",
+      )
 
-        u_tp_tgl_surat_3 = st.date_input(
-            "Tgl Surat Med 3",
-            value=str_to_date(df_row["tp_tgl_surat_3"]),
-            format="DD/MM/YYYY",
-        )
-        u_tp_tgl_3 = st.date_input(
-            "Tgl Pelaksanaan Med 3",
-            value=str_to_date(df_row["tp_tgl_3"]),
-            format="DD/MM/YYYY",
-        )
-        u_tp_ket_3 = st.text_area(
-            "Keterangan Med 3", value=safe_str(df_row["tp_ket_3"])
-        )
+      u_t3, u_t4 = st.columns(2)
+      u_nib_terlapor = u_t3.text_input(
+          "NIB Terlapor",
+          value=safe_str(df_row.get("nib_terlapor", "")),
+          key=f"u_nib_{id_pilihan}",
+      )
+      u_jenis_usaha_terlapor = u_t4.text_input(
+          "Jenis Usaha Terlapor",
+          value=safe_str(df_row.get("jenis_usaha_terlapor", "")),
+          key=f"u_jenis_{id_pilihan}",
+      )
 
-        u_sa_tanggal = st.date_input(
-            "Tanggal Selesai",
-            value=str_to_date(df_row["sa_tanggal"]),
-            format="DD/MM/YYYY",
-        )
-        sa_idx = (
-            pilihan_selesai_opsi.index(df_row["sa_pilihan"])
-            if df_row["sa_pilihan"] in pilihan_selesai_opsi
-            else 0
-        )
-        u_sa_pilihan = st.selectbox(
-            "Pilihan Penyelesaian", pilihan_selesai_opsi, index=sa_idx
-        )
-        u_sa_ket = st.text_area(
-            "Keterangan Status Selesai", value=safe_str(df_row["sa_ket"])
-        )
+      e_c7, e_c8 = st.columns(2)
+      u_alamat_terlapor = e_c7.text_area(
+          "Alamat Terlapor",
+          value=safe_str(df_row.get("alamat_terlapor", "")),
+          key=f"u_alamatterlapor_{id_pilihan}",
+      )
+      u_no_telp_terlapor = e_c8.text_input(
+          "No. Telepon Terlapor",
+          value=safe_str(df_row.get("no_telp_terlapor", "")),
+          key=f"u_notelpterlapor_{id_pilihan}",
+      )
 
-        u_dok_laporan = st.text_input(
-            "Link Dokumen Laporan", value=safe_str(df_row["dok_laporan"])
-        )
-        u_dok_selesai = st.text_input(
-            "Link Laporan Selesai", value=safe_str(df_row["dok_selesai"])
-        )
-        u_catatan = st.text_area(
-            "Catatan Tambahan", value=safe_str(df_row["catatan"])
-        )
+      u_mediator = st.text_input(
+          "Mediator",
+          value=safe_str(df_row.get("mediator", "")),
+          key=f"u_mediator_{id_pilihan}",
+      )
 
-        submit_update = st.form_submit_button("Simpan Perubahan Data")
+      st.markdown("---")
+      st.subheader("Status Penanganan")
+      stat_idx = (
+          status_opsi.index(df_row["status"])
+          if df_row["status"] in status_opsi
+          else 0
+      )
+      u_status = st.selectbox(
+          "Status Berjalan",
+          status_opsi,
+          index=stat_idx,
+          key=f"u_stat_{id_pilihan}",
+      )
+      u_bd_ket = st.text_area(
+          "Keterangan (Belum diproses)",
+          value=safe_str(df_row["bd_ket"]),
+          key=f"u_bd_ket_{id_pilihan}",
+      )
 
-        if submit_update:
-          cursor.execute(
-              """
-                        UPDATE tabel_pengaduan 
-                        SET tanggal_masuk=?, perihal=?, kategori=?, pelapor=?, terlapor=?, alamat=?, no_telp=?, 
-                            alamat_terlapor=?, no_telp_terlapor=?, mediator=?, status=?, bd_ket=?,
-                            kl_tgl_surat=?, kl_tgl_klarifikasi=?, kl_ket=?, bp_tgl_pelaksanaan=?, bp_ket=?,
-                            tp_tgl_surat_1=?, tp_tgl_1=?, tp_ket_1=?, tp_tgl_surat_2=?, tp_tgl_2=?, tp_ket_2=?, tp_tgl_surat_3=?, tp_tgl_3=?, tp_ket_3=?,
-                            sa_tanggal=?, sa_pilihan=?, sa_ket=?, dok_laporan=?, dok_selesai=?, catatan=?
-                        WHERE id_pengaduan=?
-                    """,
-              (
-                  f_date(u_tanggal_masuk),
-                  u_perihal,
-                  u_kategori,
-                  u_pelapor,
-                  u_terlapor,
-                  u_alamat,
-                  u_no_telp,
-                  u_alamat_terlapor,
-                  u_no_telp_terlapor,
-                  u_mediator,
-                  u_status,
-                  u_bd_ket,
-                  f_date(u_kl_tgl_surat),
-                  f_date(
-                      u_kl_tgl_klarifikasi
-                  ),  # <--- Diperbaiki di sini (sesuai nama variabel input)
-                  u_kl_ket,
-                  f_date(u_bp_tgl_pelaksanaan),
-                  u_bp_ket,
-                  f_date(u_tp_tgl_surat_1),
-                  f_date(u_tp_tgl_1),
-                  u_tp_ket_1,
-                  f_date(u_tp_tgl_surat_2),
-                  f_date(u_tp_tgl_2),
-                  u_tp_ket_2,
-                  f_date(u_tp_tgl_surat_3),
-                  f_date(u_tp_tgl_3),
-                  u_tp_ket_3,
-                  f_date(u_sa_tanggal),
-                  u_sa_pilihan,
-                  u_sa_ket,
-                  u_dok_laporan,
-                  u_dok_selesai,
-                  u_catatan,
-                  id_pilihan,
-              ),
-          )
-          conn.commit()
-          st.success(f"Data {id_pilihan} berhasil diperbarui!")
+      st.markdown("**Data Klarifikasi**")
+      e_kl1, e_kl2 = st.columns(2)
+      u_kl_tgl_surat = e_kl1.date_input(
+          "Tanggal Surat Undangan (Klarifikasi)",
+          value=str_to_date(df_row["kl_tgl_surat"]),
+          key=f"u_kl1_{id_pilihan}",
+      )
+      u_kl_tgl_klarifikasi = e_kl2.date_input(
+          "Tanggal Klarifikasi",
+          value=str_to_date(df_row["kl_tgl_klarifikasi"]),
+          key=f"u_kl2_{id_pilihan}",
+      )
+      u_kl_ket = st.text_area(
+          "Keterangan (Klarifikasi)",
+          value=safe_str(df_row["kl_ket"]),
+          key=f"u_kl_ket_{id_pilihan}",
+      )
+
+      st.markdown("**Data Bipartit**")
+      u_bp_tgl_pelaksanaan = st.date_input(
+          "Tanggal Pelaksanaan (Bipartit)",
+          value=str_to_date(df_row["bp_tgl_pelaksanaan"]),
+          key=f"u_bp1_{id_pilihan}",
+      )
+      u_bp_ket = st.text_area(
+          "Keterangan (Bipartit)",
+          value=safe_str(df_row["bp_ket"]),
+          key=f"u_bp_ket_{id_pilihan}",
+      )
+
+      st.markdown("**Data Tripartit (Mediasi 1)**")
+      e_tp1, e_tp2 = st.columns(2)
+      u_tp_tgl_surat_1 = e_tp1.date_input(
+          "Tgl Surat Med 1",
+          value=str_to_date(df_row["tp_tgl_surat_1"]),
+          key=f"u_tp1_{id_pilihan}",
+      )
+      u_tp_tgl_1 = e_tp2.date_input(
+          "Tgl Pelaksanaan Med 1",
+          value=str_to_date(df_row["tp_tgl_1"]),
+          key=f"u_tp2_{id_pilihan}",
+      )
+      u_tp_ket_1 = st.text_area(
+          "Keterangan Med 1",
+          value=safe_str(df_row["tp_ket_1"]),
+          key=f"u_tp_ket1_{id_pilihan}",
+      )
+
+      st.markdown("**Data Tripartit (Mediasi 2)**")
+      e_tp4, e_tp5 = st.columns(2)
+      u_tp_tgl_surat_2 = e_tp4.date_input(
+          "Tgl Surat Med 2",
+          value=str_to_date(df_row["tp_tgl_surat_2"]),
+          key=f"u_tp4_{id_pilihan}",
+      )
+      u_tp_tgl_2 = e_tp5.date_input(
+          "Tgl Pelaksanaan Med 2",
+          value=str_to_date(df_row["tp_tgl_2"]),
+          key=f"u_tp5_{id_pilihan}",
+      )
+      u_tp_ket_2 = st.text_area(
+          "Keterangan Med 2",
+          value=safe_str(df_row["tp_ket_2"]),
+          key=f"u_tp_ket2_{id_pilihan}",
+      )
+
+      st.markdown("**Data Tripartit (Mediasi 3)**")
+      e_tp7, e_tp8 = st.columns(2)
+      u_tp_tgl_surat_3 = e_tp7.date_input(
+          "Tgl Surat Med 3",
+          value=str_to_date(df_row["tp_tgl_surat_3"]),
+          key=f"u_tp7_{id_pilihan}",
+      )
+      u_tp_tgl_3 = e_tp8.date_input(
+          "Tgl Pelaksanaan Med 3",
+          value=str_to_date(df_row["tp_tgl_3"]),
+          key=f"u_tp8_{id_pilihan}",
+      )
+      u_tp_ket_3 = st.text_area(
+          "Keterangan Med 3",
+          value=safe_str(df_row["tp_ket_3"]),
+          key=f"u_tp_ket3_{id_pilihan}",
+      )
+
+      st.markdown("---")
+      st.subheader("Status Akhir (Jika Selesai)")
+      e_sa1, e_sa2 = st.columns(2)
+      u_sa_tanggal = e_sa1.date_input(
+          "Tanggal Selesai",
+          value=str_to_date(df_row["sa_tanggal"]),
+          key=f"u_sa1_{id_pilihan}",
+      )
+
+      sa_idx = (
+          pilihan_selesai_opsi.index(df_row["sa_pilihan"])
+          if df_row["sa_pilihan"] in pilihan_selesai_opsi
+          else 0
+      )
+      u_sa_pilihan = e_sa2.selectbox(
+          "Pilihan Penyelesaian",
+          pilihan_selesai_opsi,
+          index=sa_idx,
+          key=f"u_sa2_{id_pilihan}",
+      )
+      u_sa_ket = st.text_area(
+          "Keterangan Status Selesai",
+          value=safe_str(df_row["sa_ket"]),
+          key=f"u_sa_ket_{id_pilihan}",
+      )
+
+      st.markdown("---")
+      st.subheader("Dokumen & Catatan")
+      e_d1, e_d2 = st.columns(2)
+      u_dok_laporan = e_d1.text_input(
+          "Link Unggah Dokumen Laporan",
+          value=safe_str(df_row["dok_laporan"]),
+          key=f"u_d1_{id_pilihan}",
+      )
+      u_dok_selesai = e_d2.text_input(
+          "Link Unggah Laporan Selesai",
+          value=safe_str(df_row["dok_selesai"]),
+          key=f"u_d2_{id_pilihan}",
+      )
+      u_catatan = st.text_area(
+          "Catatan Tambahan",
+          value=safe_str(df_row["catatan"]),
+          key=f"u_cat_{id_pilihan}",
+      )
+
+      if st.button("Simpan Perubahan Data", type="primary"):
+        cursor.execute(
+            """
+                    UPDATE tabel_pengaduan 
+                    SET tanggal_masuk=?, perihal=?, kategori=?, pelapor=?, nik_pelapor=?, terlapor=?, email_terlapor=?, nib_terlapor=?, jenis_usaha_terlapor=?, alamat=?, no_telp=?,
+                        alamat_terlapor=?, no_telp_terlapor=?, mediator=?, status=?, bd_ket=?,
+                        kl_tgl_surat=?, kl_tgl_klarifikasi=?, kl_ket=?, bp_tgl_pelaksanaan=?, bp_ket=?,
+                        tp_tgl_surat_1=?, tp_tgl_1=?, tp_ket_1=?, tp_tgl_surat_2=?, tp_tgl_2=?, tp_ket_2=?, tp_tgl_surat_3=?, tp_tgl_3=?, tp_ket_3=?,
+                        sa_tanggal=?, sa_pilihan=?, sa_ket=?, dok_laporan=?, dok_selesai=?, catatan=?
+                    WHERE id_pengaduan=?
+                """,
+            (
+                f_date(u_tanggal_masuk),
+                u_perihal,
+                u_kategori,
+                u_pelapor,
+                u_nik_pelapor,
+                u_terlapor,
+                u_email_terlapor,
+                u_nib_terlapor,
+                u_jenis_usaha_terlapor,
+                u_alamat,
+                u_no_telp,
+                u_alamat_terlapor,
+                u_no_telp_terlapor,
+                u_mediator,
+                u_status,
+                u_bd_ket,
+                f_date(u_kl_tgl_surat),
+                f_date(u_kl_tgl_klarifikasi),
+                u_kl_ket,
+                f_date(u_bp_tgl_pelaksanaan),
+                u_bp_ket,
+                f_date(u_tp_tgl_surat_1),
+                f_date(u_tp_tgl_1),
+                u_tp_ket_1,
+                f_date(u_tp_tgl_surat_2),
+                f_date(u_tp_tgl_2),
+                u_tp_ket_2,
+                f_date(u_tp_tgl_surat_3),
+                f_date(u_tp_tgl_3),
+                u_tp_ket_3,
+                f_date(u_sa_tanggal),
+                u_sa_pilihan,
+                u_sa_ket,
+                u_dok_laporan,
+                u_dok_selesai,
+                u_catatan,
+                id_pilihan,
+            ),
+        )
+        conn.commit()
+        st.success(f"Data {id_pilihan} berhasil diperbarui!")
   else:
     st.write("Belum ada data untuk diedit.")
 
@@ -487,9 +551,9 @@ with tab3:
     id_hapus = st.selectbox(
         "Pilih ID untuk DIHAPUS:",
         df_edit["id_pengaduan"].tolist(),
-        key="sel_hapus_id",
+        key="hapus_id_unik",
     )
-    if st.button("🗑️ Hapus Permanen"):
+    if st.button("🗑️ Hapus Permanen", type="secondary"):
       cursor.execute(
           "DELETE FROM tabel_pengaduan WHERE id_pengaduan = ?", (id_hapus,)
       )
