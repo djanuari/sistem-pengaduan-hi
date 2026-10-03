@@ -46,7 +46,6 @@ if not st.session_state.logged_in:
       submit = st.form_submit_button("Masuk Aplikasi", use_container_width=True)
 
       if submit:
-        # Ganti username & password sesuai keinginan Anda di sini
         if username == "admin" and password == "admin123":
           st.session_state.logged_in = True
           st.success("Login Berhasil!")
@@ -54,7 +53,7 @@ if not st.session_state.logged_in:
         else:
           st.error("Username atau Password salah!")
 
-  st.stop()  # Menghentikan halaman agar menu sidebar tidak muncul sebelum login
+  st.stop()
 
 # --- TAMPILAN SETELAH BERHASIL LOGIN (BERANDA) ---
 st.title("⚖️ Selamat Datang di Sistem Informasi Pengaduan HI")
