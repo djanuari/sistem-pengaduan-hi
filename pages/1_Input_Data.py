@@ -1,6 +1,6 @@
 import datetime
-import sqlite3
 import pandas as pd
+from supabase import Client, create_client
 import streamlit as st
 
 if not st.session_state.get("logged_in"):
@@ -10,26 +10,20 @@ if not st.session_state.get("logged_in"):
 st.set_page_config(
     page_title="Form Input & Edit Pengaduan", page_icon="📝", layout="wide"
 )
-conn = sqlite3.connect("database.db", check_same_thread=False)
-cursor = conn.cursor()
 
-# Memastikan kolom baru otomatis ada di database secara aman
-kolom_tambahan = [
-    ("nik_pelapor", "TEXT"),
-    ("email_terlapor", "TEXT"),
-    ("nib_terlapor", "TEXT"),
-    ("jenis_usaha_terlapor", "TEXT"),
-]
-for col_nama, col_tipe in kolom_tambahan:
-  try:
-    cursor.execute(
-        f"ALTER TABLE tabel_pengaduan ADD COLUMN {col_nama} {col_tipe}"
-    )
-    conn.commit()
-  except sqlite3.OperationalError:
-    pass
+# Inisialisasi Koneksi Supabase dari st.secrets
+SUPABASE_URL = st.secrets["supabase"]["url"]
+SUPABASE_KEY = st.secrets["supabase"]["key"]
 
-st.title("📝 Form Isian & Pengelolaan Pengaduan HI")
+
+@st.cache_resource
+def init_supabase() -> Client:
+  return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+supabase = init_supabase()
+
+st.title("📝 Form Isian & Pengelolaan Pengaduan HI (Cloud Database)")
 
 kategori_opsi = [
     "Perselisihan Hak",
@@ -40,7 +34,6 @@ kategori_opsi = [
 ]
 status_opsi = ["Belum diproses", "Klarifikasi", "Bipartit", "Tripartit", "Selesai"]
 
-# Opsi pilihan penyelesaian yang sudah diperbarui
 pilihan_selesai_opsi = [
     "-",
     "Perjanjian Bersama (PB)",
@@ -54,11 +47,11 @@ tab1, tab2, tab3 = st.tabs(
 
 
 def f_date(d):
-  return str(d) if d else "-"
+  return str(d) if d else None
 
 
 def str_to_date(date_str):
-  if pd.isna(date_str) or date_str == "-" or not date_str:
+  if pd.isna(date_str) or date_str == "-" or not date_str or date_str == "None":
     return None
   try:
     return datetime.datetime.strptime(str(date_str), "%Y-%m-%d").date()
@@ -156,83 +149,90 @@ with tab1:
     dok_selesai = d2.text_input("Link Unggah Laporan Selesai")
     catatan = st.text_area("Catatan Tambahan")
 
-    submit_baru = st.form_submit_button("Simpan Data Baru")
+    submit_baru = st.form_submit_button("Simpan Data Baru ke Cloud")
 
   if submit_baru:
     if id_pengaduan.strip() == "":
       st.error("ID Pengaduan wajib diisi!")
     else:
       try:
-        cursor.execute(
-            """
-                INSERT INTO tabel_pengaduan (
-                    id_pengaduan, tanggal_masuk, perihal, kategori, pelapor, nik_pelapor, terlapor, email_terlapor, nib_terlapor, jenis_usaha_terlapor, alamat, no_telp,
-                    alamat_terlapor, no_telp_terlapor, mediator, status, bd_ket,
-                    kl_tgl_surat, kl_tgl_klarifikasi, kl_ket, bp_tgl_pelaksanaan, bp_ket,
-                    tp_tgl_surat_1, tp_tgl_1, tp_ket_1, tp_tgl_surat_2, tp_tgl_2, tp_ket_2, tp_tgl_surat_3, tp_tgl_3, tp_ket_3,
-                    sa_tanggal, sa_pilihan, sa_ket, dok_laporan, dok_selesai, catatan
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """,
-            (
-                id_pengaduan,
-                f_date(tanggal_masuk),
-                perihal,
-                kategori,
-                pelapor,
-                nik_pelapor,
-                terlapor,
-                email_terlapor,
-                nib_terlapor,
-                jenis_usaha_terlapor,
-                alamat,
-                no_telp,
-                alamat_terlapor,
-                no_telp_terlapor,
-                mediator,
-                status,
-                bd_ket,
-                f_date(kl_tgl_surat),
-                f_date(kl_tgl_klarifikasi),
-                kl_ket,
-                f_date(bp_tgl_pelaksanaan),
-                bp_ket,
-                f_date(tp_tgl_surat_1),
-                f_date(tp_tgl_1),
-                tp_ket_1,
-                f_date(tp_tgl_surat_2),
-                f_date(tp_tgl_2),
-                tp_ket_2,
-                f_date(tp_tgl_surat_3),
-                f_date(tp_tgl_3),
-                tp_ket_3,
-                f_date(sa_tanggal),
-                sa_pilihan,
-                sa_ket,
-                dok_laporan,
-                dok_selesai,
-                catatan,
-            ),
+        data_baru = {
+            "id_pengaduan": id_pengaduan.strip(),
+            "tanggal_masuk": f_date(tanggal_masuk),
+            "perihal": perihal,
+            "kategori": kategori,
+            "pelapor": pelapor,
+            "nik_pelapor": nik_pelapor,
+            "terlapor": terlapor,
+            "email_terlapor": email_terlapor,
+            "nib_terlapor": nib_terlapor,
+            "jenis_usaha_terlapor": jenis_usaha_terlapor,
+            "alamat": alamat,
+            "no_telp": no_telp,
+            "alamat_terlapor": alamat_terlapor,
+            "no_telp_terlapor": no_telp_terlapor,
+            "mediator": mediator,
+            "status": status,
+            "bd_ket": bd_ket,
+            "kl_tgl_surat": f_date(kl_tgl_surat),
+            "kl_tgl_klarifikasi": f_date(kl_tgl_klarifikasi),
+            "kl_ket": kl_ket,
+            "bp_tgl_pelaksanaan": f_date(bp_tgl_pelaksanaan),
+            "bp_ket": bp_ket,
+            "tp_tgl_surat_1": f_date(tp_tgl_surat_1),
+            "tp_tgl_1": f_date(tp_tgl_1),
+            "tp_ket_1": tp_ket_1,
+            "tp_tgl_surat_2": f_date(tp_tgl_surat_2),
+            "tp_tgl_2": f_date(tp_tgl_2),
+            "tp_ket_2": tp_ket_2,
+            "tp_tgl_surat_3": f_date(tp_tgl_surat_3),
+            "tp_tgl_3": f_date(tp_tgl_3),
+            "tp_ket_3": tp_ket_3,
+            "sa_tanggal": f_date(sa_tanggal),
+            "sa_pilihan": sa_pilihan,
+            "sa_ket": sa_ket,
+            "dok_laporan": dok_laporan,
+            "dok_selesai": dok_selesai,
+            "catatan": catatan,
+        }
+        supabase.table("tabel_pengaduan").insert(data_baru).execute()
+        st.success(
+            f"Berhasil! Data {id_pengaduan} disimpan secara permanen di cloud."
         )
-        conn.commit()
-        st.success(f"Berhasil! Data {id_pengaduan} disimpan.")
-      except sqlite3.IntegrityError:
-        st.error("Gagal: ID Pengaduan sudah ada!")
+      except Exception as e:
+        st.error(
+            f"Gagal menyimpan. Pastikan ID Pengaduan belum terdaftar: {e}"
+        )
 
 # ==========================================
 # TAB 2: EDIT DATA SECARA KESELURUHAN
 # ==========================================
 with tab2:
-  df_edit = pd.read_sql_query("SELECT id_pengaduan FROM tabel_pengaduan", conn)
+  try:
+    res = (
+        supabase.table("tabel_pengaduan").select("id_pengaduan").execute()
+    )
+    df_edit = pd.DataFrame(res.data)
+  except Exception:
+    df_edit = pd.DataFrame()
 
-  if not df_edit.empty:
+  if not df_edit.empty and "id_pengaduan" in df_edit.columns:
     id_pilihan = st.selectbox(
         "Pilih ID Pengaduan yang ingin diedit:",
         df_edit["id_pengaduan"].tolist(),
         key="select_edit_id_unik",
     )
 
-    query_row = f"SELECT * FROM tabel_pengaduan WHERE id_pengaduan = '{id_pilihan}'"
-    df_row_result = pd.read_sql_query(query_row, conn)
+    try:
+      res_row = (
+          supabase.table("tabel_pengaduan")
+          .select("*")
+          .eq("id_pengaduan", id_pilihan)
+          .execute()
+      )
+      df_row_result = pd.DataFrame(res_row.data)
+    except Exception:
+      df_row_result = pd.DataFrame()
 
     if not df_row_result.empty:
       df_row = df_row_result.iloc[0]
@@ -488,58 +488,51 @@ with tab2:
       )
 
       if st.button("Simpan Perubahan Data", type="primary"):
-        cursor.execute(
-            """
-                    UPDATE tabel_pengaduan 
-                    SET tanggal_masuk=?, perihal=?, kategori=?, pelapor=?, nik_pelapor=?, terlapor=?, email_terlapor=?, nib_terlapor=?, jenis_usaha_terlapor=?, alamat=?, no_telp=?,
-                        alamat_terlapor=?, no_telp_terlapor=?, mediator=?, status=?, bd_ket=?,
-                        kl_tgl_surat=?, kl_tgl_klarifikasi=?, kl_ket=?, bp_tgl_pelaksanaan=?, bp_ket=?,
-                        tp_tgl_surat_1=?, tp_tgl_1=?, tp_ket_1=?, tp_tgl_surat_2=?, tp_tgl_2=?, tp_ket_2=?, tp_tgl_surat_3=?, tp_tgl_3=?, tp_ket_3=?,
-                        sa_tanggal=?, sa_pilihan=?, sa_ket=?, dok_laporan=?, dok_selesai=?, catatan=?
-                    WHERE id_pengaduan=?
-                """,
-            (
-                f_date(u_tanggal_masuk),
-                u_perihal,
-                u_kategori,
-                u_pelapor,
-                u_nik_pelapor,
-                u_terlapor,
-                u_email_terlapor,
-                u_nib_terlapor,
-                u_jenis_usaha_terlapor,
-                u_alamat,
-                u_no_telp,
-                u_alamat_terlapor,
-                u_no_telp_terlapor,
-                u_mediator,
-                u_status,
-                u_bd_ket,
-                f_date(u_kl_tgl_surat),
-                f_date(u_kl_tgl_klarifikasi),
-                u_kl_ket,
-                f_date(u_bp_tgl_pelaksanaan),
-                u_bp_ket,
-                f_date(u_tp_tgl_surat_1),
-                f_date(u_tp_tgl_1),
-                u_tp_ket_1,
-                f_date(u_tp_tgl_surat_2),
-                f_date(u_tp_tgl_2),
-                u_tp_ket_2,
-                f_date(u_tp_tgl_surat_3),
-                f_date(u_tp_tgl_3),
-                u_tp_ket_3,
-                f_date(u_sa_tanggal),
-                u_sa_pilihan,
-                u_sa_ket,
-                u_dok_laporan,
-                u_dok_selesai,
-                u_catatan,
-                id_pilihan,
-            ),
-        )
-        conn.commit()
-        st.success(f"Data {id_pilihan} berhasil diperbarui!")
+        try:
+          data_update = {
+              "tanggal_masuk": f_date(u_tanggal_masuk),
+              "perihal": u_perihal,
+              "kategori": u_kategori,
+              "pelapor": u_pelapor,
+              "nik_pelapor": u_nik_pelapor,
+              "terlapor": u_terlapor,
+              "email_terlapor": u_email_terlapor,
+              "nib_terlapor": u_nib_terlapor,
+              "jenis_usaha_terlapor": u_jenis_usaha_terlapor,
+              "alamat": u_alamat,
+              "no_telp": u_no_telp,
+              "alamat_terlapor": u_alamat_terlapor,
+              "no_telp_terlapor": u_no_telp_terlapor,
+              "mediator": u_mediator,
+              "status": u_status,
+              "bd_ket": u_bd_ket,
+              "kl_tgl_surat": f_date(u_kl_tgl_surat),
+              "kl_tgl_klarifikasi": f_date(u_kl_tgl_klarifikasi),
+              "kl_ket": u_kl_ket,
+              "bp_tgl_pelaksanaan": f_date(u_bp_tgl_pelaksanaan),
+              "bp_ket": u_bp_ket,
+              "tp_tgl_surat_1": f_date(u_tp_tgl_surat_1),
+              "tp_tgl_1": f_date(u_tp_tgl_1),
+              "tp_ket_1": u_tp_ket_1,
+              "tp_tgl_surat_2": f_date(u_tp_tgl_surat_2),
+              "tp_tgl_2": f_date(u_tp_tgl_2),
+              "tp_ket_2": u_tp_ket_2,
+              "tp_tgl_surat_3": f_date(u_tp_tgl_surat_3),
+              "tp_tgl_3": f_date(u_tp_tgl_3),
+              "tp_ket_3": u_tp_ket_3,
+              "sa_tanggal": f_date(u_sa_tanggal),
+              "sa_pilihan": u_sa_pilihan,
+              "sa_ket": u_sa_ket,
+              "dok_laporan": u_dok_laporan,
+              "dok_selesai": u_dok_selesai,
+              "catatan": u_catatan,
+          }
+          supabase.table("tabel_pengaduan").update(data_update).eq(
+              "id_pengaduan", id_pilihan
+          ).execute()
+          st.success(f"Data {id_pilihan} berhasil diperbarui di cloud!")
+        except Exception as e:
+          st.error(f"Gagal memperbarui data: {e}")
   else:
     st.write("Belum ada data untuk diedit.")
 
@@ -547,18 +540,20 @@ with tab2:
 # TAB 3: HAPUS DATA
 # ==========================================
 with tab3:
-  if not df_edit.empty:
+  if not df_edit.empty and "id_pengaduan" in df_edit.columns:
     id_hapus = st.selectbox(
         "Pilih ID untuk DIHAPUS:",
         df_edit["id_pengaduan"].tolist(),
         key="hapus_id_unik",
     )
     if st.button("🗑️ Hapus Permanen", type="secondary"):
-      cursor.execute(
-          "DELETE FROM tabel_pengaduan WHERE id_pengaduan = ?", (id_hapus,)
-      )
-      conn.commit()
-      st.success(f"Data {id_hapus} berhasil dihapus!")
-      st.rerun()
+      try:
+        supabase.table("tabel_pengaduan").delete().eq(
+            "id_pengaduan", id_hapus
+        ).execute()
+        st.success(f"Data {id_hapus} berhasil dihapus dari cloud!")
+        st.rerun()
+      except Exception as e:
+        st.error(f"Gagal menghapus data: {e}")
   else:
     st.write("Tidak ada data untuk dihapus.")
