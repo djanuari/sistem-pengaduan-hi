@@ -76,16 +76,18 @@ with st.sidebar:
 
 
 # ==========================
-# FUNGSI BANTU FORMAT TANGGAL (DD/MM/YYYY)
+# FUNGSI BANTU FORMAT TANGGAL MUTLAK (DD/MM/YYYY)
 # ==========================
 def format_tanggal_indo(tanggal_str):
   if not tanggal_str or str(tanggal_str) == "nan" or str(tanggal_str) == "-" or str(tanggal_str) == "None":
     return "-"
   try:
-    dt = pd.to_datetime(tanggal_str)
-    if pd.isna(dt):
-      return str(tanggal_str)
-    return dt.strftime("%d/%m/%Y")
+    tgl_bersih = str(tanggal_str).split("T")[0].strip()
+    parts = tgl_bersih.split("-")
+    if len(parts) == 3:
+      tahun, bulan, hari = parts
+      return f"{hari}/{bulan}/{tahun}"
+    return str(tanggal_str)
   except:
     return str(tanggal_str)
 
@@ -355,20 +357,20 @@ if not df.empty:
   df_filtered = df_filtered.reset_index(drop=True)
   df_filtered["no_urut"] = df_filtered.index + 1
 
+  # Format kolom tanggal dalam dataframe untuk layar tabel utama
+  df_filtered["tanggal_masuk_tampil"] = df_filtered["tanggal_masuk"].apply(format_tanggal_indo)
+  df_filtered["sa_tanggal_tampil"] = df_filtered["sa_tanggal"].apply(format_tanggal_indo)
+
   st.dataframe(
       df_filtered,
       column_config={
           "no_urut": "No",
           "id_pengaduan": "ID",
-          "tanggal_masuk": st.column_config.DateColumn(
-              "Tanggal Masuk", format="DD/MM/YYYY"
-          ),
+          "tanggal_masuk_tampil": "Tanggal Masuk",
           "perihal": "Perihal",
           "kategori": "Kategori",
           "Status_Tampil": "Status",
-          "sa_tanggal": st.column_config.DateColumn(
-              "Tanggal Selesai", format="DD/MM/YYYY"
-          ),
+          "sa_tanggal_tampil": "Tanggal Selesai",
           "dok_selesai": st.column_config.LinkColumn("Dokumen Selesai"),
       },
       use_container_width=True,
@@ -376,11 +378,11 @@ if not df.empty:
       column_order=(
           "no_urut",
           "id_pengaduan",
-          "tanggal_masuk",
+          "tanggal_masuk_tampil",
           "perihal",
           "kategori",
           "Status_Tampil",
-          "sa_tanggal",
+          "sa_tanggal_tampil",
           "dok_selesai",
       ),
   )
