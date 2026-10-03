@@ -76,7 +76,7 @@ with st.sidebar:
 
 
 # ==========================
-# FUNGSI BANTU FORMAT TANGGAL MUTLAK (DD/MM/YYYY)
+# FUNGSI BANTU FORMAT TANGGAL & TEKS
 # ==========================
 def format_tanggal_indo(tanggal_str):
   if not tanggal_str or str(tanggal_str) == "nan" or str(tanggal_str) == "-" or str(tanggal_str) == "None":
@@ -90,6 +90,12 @@ def format_tanggal_indo(tanggal_str):
     return str(tanggal_str)
   except:
     return str(tanggal_str)
+
+
+def format_val(val):
+  if not val or str(val) == "nan" or str(val).strip() == "" or str(val) == "None":
+    return "-"
+  return str(val)
 
 
 # ==========================
@@ -124,11 +130,6 @@ def generate_pdf(row):
       )
   )
   story.append(Spacer(1, 15))
-
-  def format_val(val):
-    if not val or str(val) == "nan" or str(val).strip() == "" or str(val) == "None":
-      return "-"
-    return str(val)
 
   data_tabel = [
       [
@@ -409,31 +410,31 @@ if not df.empty:
 
       c1, c2, c3 = st.columns(3)
       c1.write(f"**Tanggal Masuk:** {format_tanggal_indo(data_detail.get('tanggal_masuk', '-'))}")
-      c2.write(f"**Kategori:** {data_detail.get('kategori', '-')}")
-      c3.write(f"**Status Berjalan:** {data_detail.get('status', '-')}")
+      c2.write(f"**Kategori:** {format_val(data_detail.get('kategori', '-'))}")
+      c3.write(f"**Status Berjalan:** {format_val(data_detail.get('status', '-'))}")
 
-      st.markdown(f"**Perihal:** {data_detail.get('perihal', '-')}")
+      st.markdown(f"**Perihal:** {format_val(data_detail.get('perihal', '-'))}")
 
       col_p1, col_p2 = st.columns(2)
       with col_p1:
         st.markdown("##### 👤 Informasi Pelapor")
-        st.write(f"**Nama:** {data_detail.get('pelapor', '-')}")
-        st.write(f"**Alamat:** {data_detail.get('alamat', '-')}")
-        st.write(f"**No. Telp:** {data_detail.get('no_telp', '-')}")
+        st.write(f"**Nama:** {format_val(data_detail.get('pelapor', '-'))}")
+        st.write(f"**Alamat:** {format_val(data_detail.get('alamat', '-'))}")
+        st.write(f"**No. Telp:** {format_val(data_detail.get('no_telp', '-'))}")
 
       with col_p2:
         st.markdown("##### 🏢 Informasi Terlapor")
-        st.write(f"**Nama:** {data_detail.get('terlapor', '-')}")
-        st.write(f"**Alamat:** {data_detail.get('alamat_terlapor', '-')}")
-        st.write(f"**No. Telp:** {data_detail.get('no_telp_terlapor', '-')}")
+        st.write(f"**Nama:** {format_val(data_detail.get('terlapor', '-'))}")
+        st.write(f"**Alamat:** {format_val(data_detail.get('alamat_terlapor', '-'))}")
+        st.write(f"**No. Telp:** {format_val(data_detail.get('no_telp_terlapor', '-'))}")
 
-      st.markdown(f"**Mediator:** {data_detail.get('mediator', '-')}")
+      st.markdown(f"**Mediator:** {format_val(data_detail.get('mediator', '-'))}")
 
       st.markdown("---")
       st.markdown("##### 📌 Riwayat & Tahapan Penanganan")
 
       st.markdown(
-          f"- **Keterangan Belum Diproses:** {data_detail.get('bd_ket', '-')}"
+          f"- **Keterangan Belum Diproses:** {format_val(data_detail.get('bd_ket', '-'))}"
       )
       st.markdown(
           f"- **Klarifikasi:** Tgl Surat:"
@@ -450,7 +451,7 @@ if not df.empty:
       for i in [1, 2, 3]:
         tgl_med = format_tanggal_indo(data_detail.get(f"tp_tgl_{i}", "-"))
         tgl_surat_med = format_tanggal_indo(data_detail.get(f"tp_tgl_surat_{i}", "-"))
-        ket_med = data_detail.get(f"tp_ket_{i}", "-")
+        ket_med = format_val(data_detail.get(f"tp_ket_{i}", "-"))
         st.markdown(
             f"- **Mediasi {i}:** Tgl Surat: {tgl_surat_med} | Tgl Pelaksanaan:"
             f" {tgl_med} | Ket: {ket_med}"
@@ -458,15 +459,15 @@ if not df.empty:
 
       st.markdown("---")
       st.markdown("##### 🏁 Status Akhir / Penyelesaian")
-      st.write(f"**Pilihan Penyelesaian:** {data_detail.get('sa_pilihan', '-')}")
+      st.write(f"**Pilihan Penyelesaian:** {format_val(data_detail.get('sa_pilihan', '-'))}")
       st.write(f"**Tanggal Selesai:** {format_tanggal_indo(data_detail.get('sa_tanggal', '-'))}")
-      st.write(f"**Keterangan Selesai:** {data_detail.get('sa_ket', '-')}")
+      st.write(f"**Keterangan Selesai:** {format_val(data_detail.get('sa_ket', '-'))}")
 
       st.markdown("---")
       st.markdown("##### 📁 Dokumen & Catatan")
-      st.write(f"**Dokumen Laporan:** {data_detail.get('dok_laporan', '-')}")
-      st.write(f"**Laporan Selesai:** {data_detail.get('dok_selesai', '-')}")
-      st.write(f"**Catatan Tambahan:** {data_detail.get('catatan', '-')}")
+      st.write(f"**Dokumen Laporan:** {format_val(data_detail.get('dok_laporan', '-'))}")
+      st.write(f"**Laporan Selesai:** {format_val(data_detail.get('dok_selesai', '-'))}")
+      st.write(f"**Catatan Tambahan:** {format_val(data_detail.get('catatan', '-'))}")
 else:
   st.info(
       "Belum ada data pengaduan di dalam sistem cloud. Silakan buka menu"
