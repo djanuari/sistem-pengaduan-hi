@@ -75,7 +75,24 @@ with st.sidebar:
     st.caption("Gagal memuat data backup.")
 
 
-# Fungsi Generator PDF
+# ==========================
+# FUNGSI BANTU FORMAT TANGGAL (DD/MM/YYYY)
+# ==========================
+def format_tanggal_indo(tanggal_str):
+  if not tanggal_str or str(tanggal_str) == "nan" or str(tanggal_str) == "-" or str(tanggal_str) == "None":
+    return "-"
+  try:
+    dt = pd.to_datetime(tanggal_str)
+    if pd.isna(dt):
+      return str(tanggal_str)
+    return dt.strftime("%d/%m/%Y")
+  except:
+    return str(tanggal_str)
+
+
+# ==========================
+# FUNGSI GENERATOR PDF
+# ==========================
 def generate_pdf(row):
   buffer = BytesIO()
   doc = SimpleDocTemplate(
@@ -107,7 +124,7 @@ def generate_pdf(row):
   story.append(Spacer(1, 15))
 
   def format_val(val):
-    if not val or str(val) == "nan" or str(val).strip() == "":
+    if not val or str(val) == "nan" or str(val).strip() == "" or str(val) == "None":
       return "-"
     return str(val)
 
@@ -118,7 +135,7 @@ def generate_pdf(row):
       ],
       [
           Paragraph("<b>Tanggal Masuk</b>", styles["Normal"]),
-          Paragraph(format_val(row.get("tanggal_masuk")), styles["Normal"]),
+          Paragraph(format_tanggal_indo(row.get("tanggal_masuk")), styles["Normal"]),
       ],
       [
           Paragraph("<b>Kategori</b>", styles["Normal"]),
@@ -150,9 +167,7 @@ def generate_pdf(row):
       ],
       [
           Paragraph("<b>No. Telp Terlapor</b>", styles["Normal"]),
-          Paragraph(
-              format_val(row.get("no_telp_terlapor")), styles["Normal"]
-          ),
+          Paragraph(format_val(row.get("no_telp_terlapor")), styles["Normal"]),
       ],
       [
           Paragraph("<b>Mediator</b>", styles["Normal"]),
@@ -167,12 +182,10 @@ def generate_pdf(row):
           Paragraph(format_val(row.get("bd_ket")), styles["Normal"]),
       ],
       [
+          Paragraph("<b>Klarifikasi (Tgl Surat / Tgl / Ket)</b>", styles["Normal"]),
           Paragraph(
-              "<b>Klarifikasi (Tgl Surat / Tgl / Ket)</b>", styles["Normal"]
-          ),
-          Paragraph(
-              f"Surat: {format_val(row.get('kl_tgl_surat'))} | Tgl:"
-              f" {format_val(row.get('kl_tgl_klarifikasi'))} | Ket:"
+              f"Surat: {format_tanggal_indo(row.get('kl_tgl_surat'))} | Tgl:"
+              f" {format_tanggal_indo(row.get('kl_tgl_klarifikasi'))} | Ket:"
               f" {format_val(row.get('kl_ket'))}",
               styles["Normal"],
           ),
@@ -180,7 +193,7 @@ def generate_pdf(row):
       [
           Paragraph("<b>Bipartit (Tgl / Ket)</b>", styles["Normal"]),
           Paragraph(
-              f"Tgl: {format_val(row.get('bp_tgl_pelaksanaan'))} | Ket:"
+              f"Tgl: {format_tanggal_indo(row.get('bp_tgl_pelaksanaan'))} | Ket:"
               f" {format_val(row.get('bp_ket'))}",
               styles["Normal"],
           ),
@@ -188,8 +201,8 @@ def generate_pdf(row):
       [
           Paragraph("<b>Mediasi 1 (Surat / Tgl / Ket)</b>", styles["Normal"]),
           Paragraph(
-              f"Surat: {format_val(row.get('tp_tgl_surat_1'))} | Tgl:"
-              f" {format_val(row.get('tp_tgl_1'))} | Ket:"
+              f"Surat: {format_tanggal_indo(row.get('tp_tgl_surat_1'))} | Tgl:"
+              f" {format_tanggal_indo(row.get('tp_tgl_1'))} | Ket:"
               f" {format_val(row.get('tp_ket_1'))}",
               styles["Normal"],
           ),
@@ -197,8 +210,8 @@ def generate_pdf(row):
       [
           Paragraph("<b>Mediasi 2 (Surat / Tgl / Ket)</b>", styles["Normal"]),
           Paragraph(
-              f"Surat: {format_val(row.get('tp_tgl_surat_2'))} | Tgl:"
-              f" {format_val(row.get('tp_tgl_2'))} | Ket:"
+              f"Surat: {format_tanggal_indo(row.get('tp_tgl_surat_2'))} | Tgl:"
+              f" {format_tanggal_indo(row.get('tp_tgl_2'))} | Ket:"
               f" {format_val(row.get('tp_ket_2'))}",
               styles["Normal"],
           ),
@@ -206,8 +219,8 @@ def generate_pdf(row):
       [
           Paragraph("<b>Mediasi 3 (Surat / Tgl / Ket)</b>", styles["Normal"]),
           Paragraph(
-              f"Surat: {format_val(row.get('tp_tgl_surat_3'))} | Tgl:"
-              f" {format_val(row.get('tp_tgl_3'))} | Ket:"
+              f"Surat: {format_tanggal_indo(row.get('tp_tgl_surat_3'))} | Tgl:"
+              f" {format_tanggal_indo(row.get('tp_tgl_3'))} | Ket:"
               f" {format_val(row.get('tp_ket_3'))}",
               styles["Normal"],
           ),
@@ -216,7 +229,7 @@ def generate_pdf(row):
           Paragraph("<b>Penyelesaian Akhir / Selesai</b>", styles["Normal"]),
           Paragraph(
               f"Pilihan: {format_val(row.get('sa_pilihan'))} | Tgl:"
-              f" {format_val(row.get('sa_tanggal'))} | Ket:"
+              f" {format_tanggal_indo(row.get('sa_tanggal'))} | Ket:"
               f" {format_val(row.get('sa_ket'))}",
               styles["Normal"],
           ),
@@ -345,7 +358,7 @@ if not df.empty:
   df_filtered = df_filtered.reset_index(drop=True)
   df_filtered["no_urut"] = df_filtered.index + 1
 
-  # Tabel Utama Rekapitulasi
+  # Tabel Utama Rekapitulasi (Format tanggal otomatis di layar menjadi DD/MM/YYYY)
   st.dataframe(
       df_filtered,
       column_config={
@@ -397,9 +410,9 @@ if not df.empty:
           mime="application/pdf",
       )
 
-      # Data Dasar Utama
+      # Data Dasar Utama (Tanggal diformat ke DD/MM/YYYY)
       c1, c2, c3 = st.columns(3)
-      c1.write(f"**Tanggal Masuk:** {data_detail.get('tanggal_masuk', '-')}")
+      c1.write(f"**Tanggal Masuk:** {format_tanggal_indo(data_detail.get('tanggal_masuk', '-'))}")
       c2.write(f"**Kategori:** {data_detail.get('kategori', '-')}")
       c3.write(f"**Status Berjalan:** {data_detail.get('status', '-')}")
 
@@ -421,7 +434,7 @@ if not df.empty:
 
       st.markdown(f"**Mediator:** {data_detail.get('mediator', '-')}")
 
-      # RIWAYAT & TAHAPAN PENANGANAN
+      # RIWAYAT & TAHAPAN PENANGANAN (Tanggal diformat ke DD/MM/YYYY)
       st.markdown("---")
       st.markdown("##### 📌 Riwayat & Tahapan Penanganan")
 
@@ -430,19 +443,19 @@ if not df.empty:
       )
       st.markdown(
           f"- **Klarifikasi:** Tgl Surat:"
-          f" {data_detail.get('kl_tgl_surat', '-')} | Tgl Klarifikasi:"
-          f" {data_detail.get('kl_tgl_klarifikasi', '-')} | Ket:"
+          f" {format_tanggal_indo(data_detail.get('kl_tgl_surat', '-'))} | Tgl Klarifikasi:"
+          f" {format_tanggal_indo(data_detail.get('kl_tgl_klarifikasi', '-'))} | Ket:"
           f" {data_detail.get('kl_ket', '-')}"
       )
       st.markdown(
           f"- **Bipartit:** Tgl Pelaksanaan:"
-          f" {data_detail.get('bp_tgl_pelaksanaan', '-')} | Ket:"
+          f" {format_tanggal_indo(data_detail.get('bp_tgl_pelaksanaan', '-'))} | Ket:"
           f" {data_detail.get('bp_ket', '-')}"
       )
 
       for i in [1, 2, 3]:
-        tgl_med = data_detail.get(f"tp_tgl_{i}", "-")
-        tgl_surat_med = data_detail.get(f"tp_tgl_surat_{i}", "-")
+        tgl_med = format_tanggal_indo(data_detail.get(f"tp_tgl_{i}", "-"))
+        tgl_surat_med = format_tanggal_indo(data_detail.get(f"tp_tgl_surat_{i}", "-"))
         ket_med = data_detail.get(f"tp_ket_{i}", "-")
         st.markdown(
             f"- **Mediasi {i}:** Tgl Surat: {tgl_surat_med} | Tgl Pelaksanaan:"
@@ -453,7 +466,7 @@ if not df.empty:
       st.markdown("---")
       st.markdown("##### 🏁 Status Akhir / Penyelesaian")
       st.write(f"**Pilihan Penyelesaian:** {data_detail.get('sa_pilihan', '-')}")
-      st.write(f"**Tanggal Selesai:** {data_detail.get('sa_tanggal', '-')}")
+      st.write(f"**Tanggal Selesai:** {format_tanggal_indo(data_detail.get('sa_tanggal', '-'))}")
       st.write(f"**Keterangan Selesai:** {data_detail.get('sa_ket', '-')}")
 
       # Dokumen & Catatan Tambahan
