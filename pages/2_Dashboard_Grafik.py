@@ -22,7 +22,6 @@ supabase = init_supabase()
 st.title("📈 Dashboard Grafik & Statistik Pengaduan (Cloud)")
 st.markdown("---")
 
-# Mengambil seluruh data dari tabel_pengaduan Supabase
 try:
   response = supabase.table("tabel_pengaduan").select("*").execute()
   df = pd.DataFrame(response.data)
@@ -31,7 +30,6 @@ except Exception as e:
   df = pd.DataFrame()
 
 if not df.empty:
-  # Ekstraksi Tahun dan Bulan untuk filter
   df["tanggal_masuk_dt"] = pd.to_datetime(
       df["tanggal_masuk"], errors="coerce"
   )
@@ -55,7 +53,6 @@ if not df.empty:
   }
   df["Bulan"] = df["tanggal_masuk_dt"].dt.month.map(bulan_dict)
 
-  # --- PILIHAN FILTER TAHUN & BULAN ---
   f1, f2 = st.columns(2)
   daftar_tahun = [str(y) for y in range(2020, 2031)]
   tahun_filter = f1.selectbox("Pilih Tahun:", ["Semua Tahun"] + daftar_tahun)
@@ -77,7 +74,6 @@ if not df.empty:
   ]
   bulan_filter = f2.selectbox("Pilih Bulan:", daftar_bulan)
 
-  # Terapkan filter
   df_filtered = df.copy()
   if tahun_filter != "Semua Tahun":
     df_filtered = df_filtered[df_filtered["Tahun"] == tahun_filter]
@@ -86,7 +82,6 @@ if not df.empty:
 
   st.markdown("---")
 
-  # Metrik Ringkasan
   col1, col2, col3 = st.columns(3)
   col1.metric("Total Pengaduan (Terfilter)", len(df_filtered))
   col2.metric(
@@ -99,21 +94,18 @@ if not df.empty:
   st.markdown("---")
 
 
-  # Fungsi pembantu untuk menampilkan Grafik Lingkaran + Tabel Jumlah
   def render_grafik_dan_tabel(judul, series_data, nama_kolom_kategori):
     st.subheader(judul)
     if not series_data.empty:
       df_table = series_data.reset_index()
       df_table.columns = [nama_kolom_kategori, "Jumlah"]
 
-      # Tambahkan baris jumlah total di bagian bawah
       total_row = pd.DataFrame({
           nama_kolom_kategori: ["JUMLAH TOTAL"],
           "Jumlah": [df_table["Jumlah"].sum()],
       })
       df_table = pd.concat([df_table, total_row], ignore_index=True)
 
-      # Layout samping-sampingan: Kolom kiri grafik lingkaran, Kolom kanan tabel jumlah
       col_g, col_t = st.columns([1.5, 1])
       with col_g:
         fig = px.pie(
@@ -130,9 +122,6 @@ if not df.empty:
       st.info("Tidak ada data untuk ditampilkan.")
 
 
-  # --- 4 KATEGORI GRAFIK LINGKARAN BESERTA TABEL JUMLAHNYA ---
-
-  # 1. Kategori Pengaduan
   if "kategori" in df_filtered.columns:
     render_grafik_dan_tabel(
         "Distribusi Kategori Pengaduan",
@@ -142,7 +131,6 @@ if not df.empty:
 
   st.markdown("---")
 
-  # 2. Status Penanganan
   if "status" in df_filtered.columns:
     render_grafik_dan_tabel(
         "Distribusi Status Penanganan",
@@ -152,7 +140,6 @@ if not df.empty:
 
   st.markdown("---")
 
-  # 3. Pilihan Penyelesaian (Hanya opsi valid, nilai "-" diabaikan)
   if "sa_pilihan" in df_filtered.columns:
     df_penyelesaian = df_filtered[
         df_filtered["sa_pilihan"].notna() & (df_filtered["sa_pilihan"] != "-")
@@ -165,7 +152,6 @@ if not df.empty:
 
   st.markdown("---")
 
-  # 4. Berdasarkan Tahun Masuk
   if "Tahun" in df_filtered.columns:
     render_grafik_dan_tabel(
         "Distribusi Berdasarkan Tahun Masuk",
