@@ -308,7 +308,6 @@ if not df.empty:
 
   df["Status_Tampil"] = df.apply(tentukan_status_tampil, axis=1)
 
-  # Filter Tahun (2020 - 2030) & Bulan
   col1, col2 = st.columns(2)
   daftar_tahun = ["Semua Tahun"] + [str(y) for y in range(2020, 2031)]
   tahun_filter = col1.selectbox("Pilih Tahun:", daftar_tahun)
@@ -336,7 +335,6 @@ if not df.empty:
   if bulan_filter != "Semua Bulan":
     df_filtered = df_filtered[df_filtered["Bulan"] == bulan_filter]
 
-  # Tombol Export Excel
   col3, col4 = st.columns(2)
   output = BytesIO()
   with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -354,11 +352,9 @@ if not df.empty:
       ),
   )
 
-  # Tambahkan nomor urut tampilan
   df_filtered = df_filtered.reset_index(drop=True)
   df_filtered["no_urut"] = df_filtered.index + 1
 
-  # Tabel Utama Rekapitulasi (Format tanggal otomatis di layar menjadi DD/MM/YYYY)
   st.dataframe(
       df_filtered,
       column_config={
@@ -401,7 +397,6 @@ if not df.empty:
     with st.container():
       st.info(f"✨ **Menampilkan Informasi Rinci untuk ID: {pilih_id}**")
 
-      # Tombol Download PDF
       pdf_bytes = generate_pdf(data_detail)
       st.download_button(
           label="📄 Download Laporan PDF",
@@ -410,7 +405,6 @@ if not df.empty:
           mime="application/pdf",
       )
 
-      # Data Dasar Utama (Tanggal diformat ke DD/MM/YYYY)
       c1, c2, c3 = st.columns(3)
       c1.write(f"**Tanggal Masuk:** {format_tanggal_indo(data_detail.get('tanggal_masuk', '-'))}")
       c2.write(f"**Kategori:** {data_detail.get('kategori', '-')}")
@@ -418,7 +412,6 @@ if not df.empty:
 
       st.markdown(f"**Perihal:** {data_detail.get('perihal', '-')}")
 
-      # Identitas Pihak Terkait
       col_p1, col_p2 = st.columns(2)
       with col_p1:
         st.markdown("##### 👤 Informasi Pelapor")
@@ -434,7 +427,6 @@ if not df.empty:
 
       st.markdown(f"**Mediator:** {data_detail.get('mediator', '-')}")
 
-      # RIWAYAT & TAHAPAN PENANGANAN (Tanggal diformat ke DD/MM/YYYY)
       st.markdown("---")
       st.markdown("##### 📌 Riwayat & Tahapan Penanganan")
 
@@ -445,12 +437,12 @@ if not df.empty:
           f"- **Klarifikasi:** Tgl Surat:"
           f" {format_tanggal_indo(data_detail.get('kl_tgl_surat', '-'))} | Tgl Klarifikasi:"
           f" {format_tanggal_indo(data_detail.get('kl_tgl_klarifikasi', '-'))} | Ket:"
-          f" {data_detail.get('kl_ket', '-')}"
+          f" {format_val(data_detail.get('kl_ket'))}"
       )
       st.markdown(
           f"- **Bipartit:** Tgl Pelaksanaan:"
           f" {format_tanggal_indo(data_detail.get('bp_tgl_pelaksanaan', '-'))} | Ket:"
-          f" {data_detail.get('bp_ket', '-')}"
+          f" {format_val(data_detail.get('bp_ket'))}"
       )
 
       for i in [1, 2, 3]:
@@ -462,14 +454,12 @@ if not df.empty:
             f" {tgl_med} | Ket: {ket_med}"
         )
 
-      # Status Penyelesaian Akhir
       st.markdown("---")
       st.markdown("##### 🏁 Status Akhir / Penyelesaian")
       st.write(f"**Pilihan Penyelesaian:** {data_detail.get('sa_pilihan', '-')}")
       st.write(f"**Tanggal Selesai:** {format_tanggal_indo(data_detail.get('sa_tanggal', '-'))}")
       st.write(f"**Keterangan Selesai:** {data_detail.get('sa_ket', '-')}")
 
-      # Dokumen & Catatan Tambahan
       st.markdown("---")
       st.markdown("##### 📁 Dokumen & Catatan")
       st.write(f"**Dokumen Laporan:** {data_detail.get('dok_laporan', '-')}")
