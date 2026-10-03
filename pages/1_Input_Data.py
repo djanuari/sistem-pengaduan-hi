@@ -54,7 +54,7 @@ def str_to_date(date_str):
   if pd.isna(date_str) or date_str == "-" or not date_str or date_str == "None":
     return None
   try:
-    return datetime.datetime.strptime(str(date_str), "%Y-%m-%d").date()
+    return datetime.datetime.strptime(str(date_str).split("T")[0], "%Y-%m-%d").date()
   except:
     return None
 
