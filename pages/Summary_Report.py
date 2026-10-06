@@ -66,20 +66,23 @@ except Exception as e:
   df = pd.DataFrame()
 
 if not df.empty:
-  # Filter Tahun & Bulan
-  if "tanggal_masuk" in df.columns:
-    df["tahun"] = pd.to_datetime(df["tanggal_masuk"], errors="coerce").dt.year
-    df["bulan"] = pd.to_datetime(df["tanggal_masuk"], errors="coerce").dt.month
+  # Filter Tahun (Rentang 2033 sampai 2020) & Bulan
+  list_tahun = list(range(2033, 2019, -1))
+  tahun_opsi = ["Semua Tahun"] + list_tahun
+  pilih_tahun = st.selectbox("Pilih Tahun:", tahun_opsi)
 
-    list_tahun = sorted(
-        [int(x) for x in df["tahun"].dropna().unique().tolist()], reverse=True
-    )
-    tahun_opsi = ["Semua Tahun"] + list_tahun
-    pilih_tahun = st.selectbox("Pilih Tahun:", tahun_opsi)
+  df_filtered = df.copy()
+  
+  if "tanggal_masuk" in df_filtered.columns:
+    df_filtered["tahun"] = pd.to_datetime(
+        df_filtered["tanggal_masuk"], errors="coerce"
+    ).dt.year
+    df_filtered["bulan"] = pd.to_datetime(
+        df_filtered["tanggal_masuk"], errors="coerce"
+    ).dt.month
 
-    df_filtered = df.copy()
     if pilih_tahun != "Semua Tahun":
-      df_filtered = df_filtered[df_filtered["tahun"] == pilih_tahun]
+      df_filtered = df_filtered[df_filtered["tahun"] == int(pilih_tahun)]
 
     bulan_opsi = {
         "Semua Bulan": None,
@@ -99,8 +102,6 @@ if not df.empty:
     pilih_bulan = st.selectbox("Pilih Bulan:", list(bulan_opsi.keys()))
     if pilih_bulan != "Semua Bulan":
       df_filtered = df_filtered[df_filtered["bulan"] == bulan_opsi[pilih_bulan]]
-  else:
-    df_filtered = df
 
   st.markdown(f"Total Data Ditampilkan: **{len(df_filtered)}** pengaduan")
 
