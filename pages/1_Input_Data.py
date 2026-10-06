@@ -163,37 +163,38 @@ with tab1:
             "kategori": kategori,
             "pelapor": pelapor,
             "nik_pelapor": nik_pelapor,
+            "alamat_pelapor": alamat,  # Diubah dari "alamat"
+            "telepon_pelapor": no_telp,  # Diubah dari "no_telp"
             "terlapor": terlapor,
             "email_terlapor": email_terlapor,
             "nib_terlapor": nib_terlapor,
-            "jenis_usaha_terlapor": jenis_usaha_terlapor,
-            "alamat": alamat,
-            "no_telp": no_telp,
+            "jenis_usaha": jenis_usaha_terlapor,  # Diubah dari "jenis_usaha_terlapor"
             "alamat_terlapor": alamat_terlapor,
-            "no_telp_terlapor": no_telp_terlapor,
+            "telepon_terlapor": no_telp_terlapor,  # Diubah dari "no_telp_terlapor"
             "mediator": mediator,
             "status": status,
-            "bd_ket": bd_ket,
-            "kl_tgl_surat": f_date(kl_tgl_surat),
-            "kl_tgl_klarifikasi": f_date(kl_tgl_klarifikasi),
-            "kl_ket": kl_ket,
-            "bp_tgl_pelaksanaan": f_date(bp_tgl_pelaksanaan),
-            "bp_ket": bp_ket,
-            "tp_tgl_surat_1": f_date(tp_tgl_surat_1),
-            "tp_tgl_1": f_date(tp_tgl_1),
-            "tp_ket_1": tp_ket_1,
-            "tp_tgl_surat_2": f_date(tp_tgl_surat_2),
-            "tp_tgl_2": f_date(tp_tgl_2),
-            "tp_ket_2": tp_ket_2,
-            "tp_tgl_surat_3": f_date(tp_tgl_surat_3),
-            "tp_tgl_3": f_date(tp_tgl_3),
-            "tp_ket_3": tp_ket_3,
-            "sa_tanggal": f_date(sa_tanggal),
-            "sa_pilihan": sa_pilihan,
-            "sa_ket": sa_ket,
-            "dok_laporan": dok_laporan,
-            "dok_selesai": dok_selesai,
+            "keterangan_status": bd_ket,  # Diubah dari "bd_ket"
+            "tgl_surat_klarifikasi": f_date(kl_tgl_surat),
+            "tgl_klarifikasi": f_date(kl_tgl_klarifikasi),
+            "keterangan_klarifikasi": kl_ket,  # Diubah dari "kl_ket"
+            "tgl_bipartit": f_date(bp_tgl_pelaksanaan),  # Diubah dari "bp_tgl_pelaksanaan"
+            "keterangan_bipartit": bp_ket,  # Diubah dari "bp_ket"
+            "tgl_surat_med1": f_date(tp_tgl_surat_1),
+            "tgl_med1": f_date(tp_tgl_1),
+            "ket_med1": tp_ket_1,
+            "tgl_surat_med2": f_date(tp_tgl_surat_2),
+            "tgl_med2": f_date(tp_tgl_2),
+            "ket_med2": tp_ket_2,
+            "tgl_surat_med3": f_date(tp_tgl_surat_3),
+            "tgl_med3": f_date(tp_tgl_3),
+            "ket_med3": tp_ket_3,
+            "tanggal_selesai": f_date(sa_tanggal),  # Diubah dari "sa_tanggal"
+            "pilihan_penyelesaian": sa_pilihan,  # Diubah dari "sa_pilihan"
+            "keterangan_selesai": sa_ket,  # Diubah dari "sa_ket"
+            "link_dokumen": dok_laporan,  # Diubah dari "dok_laporan"
+            "link_laporan_selesai": dok_selesai,  # Diubah dari "dok_selesai"
             "catatan": catatan,
+        }
         }
         supabase.table("tabel_pengaduan").insert(data_baru).execute()
         st.success(
