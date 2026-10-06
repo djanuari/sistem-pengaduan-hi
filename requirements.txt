@@ -4,3 +4,4 @@ supabase
 psycopg2-binary
 xlsxwriter
 plotly
+reportlab
