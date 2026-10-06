@@ -1,9 +1,9 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="Sistem Pengaduan Hubungan Industrial",
-    page_icon="⚖️",
-    layout="wide",
+    page_title="Login",  # <--- Ubah teks ini menjadi "Login"
+    page_icon="🔐",
+    layout="centered",
 )
 
 # Inisialisasi status sesi login
