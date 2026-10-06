@@ -163,22 +163,22 @@ with tab1:
             "kategori": kategori,
             "pelapor": pelapor,
             "nik_pelapor": nik_pelapor,
-            "alamat_pelapor": alamat,  # Diubah dari "alamat"
-            "telepon_pelapor": no_telp,  # Diubah dari "no_telp"
+            "alamat_pelapor": alamat,
+            "telepon_pelapor": no_telp,
             "terlapor": terlapor,
             "email_terlapor": email_terlapor,
             "nib_terlapor": nib_terlapor,
-            "jenis_usaha": jenis_usaha_terlapor,  # Diubah dari "jenis_usaha_terlapor"
+            "jenis_usaha": jenis_usaha_terlapor,
             "alamat_terlapor": alamat_terlapor,
-            "telepon_terlapor": no_telp_terlapor,  # Diubah dari "no_telp_terlapor"
+            "telepon_terlapor": no_telp_terlapor,
             "mediator": mediator,
             "status": status,
-            "keterangan_status": bd_ket,  # Diubah dari "bd_ket"
+            "keterangan_status": bd_ket,
             "tgl_surat_klarifikasi": f_date(kl_tgl_surat),
             "tgl_klarifikasi": f_date(kl_tgl_klarifikasi),
-            "keterangan_klarifikasi": kl_ket,  # Diubah dari "kl_ket"
-            "tgl_bipartit": f_date(bp_tgl_pelaksanaan),  # Diubah dari "bp_tgl_pelaksanaan"
-            "keterangan_bipartit": bp_ket,  # Diubah dari "bp_ket"
+            "keterangan_klarifikasi": kl_ket,
+            "tgl_bipartit": f_date(bp_tgl_pelaksanaan),
+            "keterangan_bipartit": bp_ket,
             "tgl_surat_med1": f_date(tp_tgl_surat_1),
             "tgl_med1": f_date(tp_tgl_1),
             "ket_med1": tp_ket_1,
@@ -188,31 +188,26 @@ with tab1:
             "tgl_surat_med3": f_date(tp_tgl_surat_3),
             "tgl_med3": f_date(tp_tgl_3),
             "ket_med3": tp_ket_3,
-            "tanggal_selesai": f_date(sa_tanggal),  # Diubah dari "sa_tanggal"
-            "pilihan_penyelesaian": sa_pilihan,  # Diubah dari "sa_pilihan"
-            "keterangan_selesai": sa_ket,  # Diubah dari "sa_ket"
-            "link_dokumen": dok_laporan,  # Diubah dari "dok_laporan"
-            "link_laporan_selesai": dok_selesai,  # Diubah dari "dok_selesai"
+            "tanggal_selesai": f_date(sa_tanggal),
+            "pilihan_penyelesaian": sa_pilihan,
+            "keterangan_selesai": sa_ket,
+            "link_dokumen": dok_laporan,
+            "link_laporan_selesai": dok_selesai,
             "catatan": catatan,
-        }
         }
         supabase.table("tabel_pengaduan").insert(data_baru).execute()
         st.success(
             f"Berhasil! Data {id_pengaduan} disimpan secara permanen di cloud."
         )
       except Exception as e:
-        st.error(
-            f"Gagal menyimpan. Pastikan ID Pengaduan belum terdaftar: {e}"
-        )
+        st.error(f"Gagal menyimpan: {e}")
 
 # ==========================================
 # TAB 2: EDIT DATA SECARA KESELURUHAN
 # ==========================================
 with tab2:
   try:
-    res = (
-        supabase.table("tabel_pengaduan").select("id_pengaduan").execute()
-    )
+    res = supabase.table("tabel_pengaduan").select("id_pengaduan").execute()
     df_edit = pd.DataFrame(res.data)
   except Exception:
     df_edit = pd.DataFrame()
@@ -288,12 +283,12 @@ with tab2:
       e_c5, e_c6 = st.columns(2)
       u_alamat = e_c5.text_area(
           "Alamat Pelapor",
-          value=safe_str(df_row.get("alamat", "")),
+          value=safe_str(df_row.get("alamat_pelapor", "")),
           key=f"u_alamat_{id_pilihan}",
       )
       u_no_telp = e_c6.text_input(
           "Nomor Telepon / Kontak Pelapor",
-          value=safe_str(df_row.get("no_telp", "")),
+          value=safe_str(df_row.get("telepon_pelapor", "")),
           key=f"u_notelp_{id_pilihan}",
       )
 
@@ -318,7 +313,7 @@ with tab2:
       )
       u_jenis_usaha_terlapor = u_t4.text_input(
           "Jenis Usaha Terlapor",
-          value=safe_str(df_row.get("jenis_usaha_terlapor", "")),
+          value=safe_str(df_row.get("jenis_usaha", "")),
           key=f"u_jenis_{id_pilihan}",
       )
 
@@ -330,7 +325,7 @@ with tab2:
       )
       u_no_telp_terlapor = e_c8.text_input(
           "No. Telepon Terlapor",
-          value=safe_str(df_row.get("no_telp_terlapor", "")),
+          value=safe_str(df_row.get("telepon_terlapor", "")),
           key=f"u_notelpterlapor_{id_pilihan}",
       )
 
@@ -355,7 +350,7 @@ with tab2:
       )
       u_bd_ket = st.text_area(
           "Keterangan (Belum diproses)",
-          value=safe_str(df_row["bd_ket"]),
+          value=safe_str(df_row.get("keterangan_status", "")),
           key=f"u_bd_ket_{id_pilihan}",
       )
 
@@ -363,29 +358,29 @@ with tab2:
       e_kl1, e_kl2 = st.columns(2)
       u_kl_tgl_surat = e_kl1.date_input(
           "Tanggal Surat Undangan (Klarifikasi)",
-          value=str_to_date(df_row["kl_tgl_surat"]),
+          value=str_to_date(df_row.get("tgl_surat_klarifikasi")),
           key=f"u_kl1_{id_pilihan}",
       )
       u_kl_tgl_klarifikasi = e_kl2.date_input(
           "Tanggal Klarifikasi",
-          value=str_to_date(df_row["kl_tgl_klarifikasi"]),
+          value=str_to_date(df_row.get("tgl_klarifikasi")),
           key=f"u_kl2_{id_pilihan}",
       )
       u_kl_ket = st.text_area(
           "Keterangan (Klarifikasi)",
-          value=safe_str(df_row["kl_ket"]),
+          value=safe_str(df_row.get("keterangan_klarifikasi", "")),
           key=f"u_kl_ket_{id_pilihan}",
       )
 
       st.markdown("**Data Bipartit**")
       u_bp_tgl_pelaksanaan = st.date_input(
           "Tanggal Pelaksanaan (Bipartit)",
-          value=str_to_date(df_row["bp_tgl_pelaksanaan"]),
+          value=str_to_date(df_row.get("tgl_bipartit")),
           key=f"u_bp1_{id_pilihan}",
       )
       u_bp_ket = st.text_area(
           "Keterangan (Bipartit)",
-          value=safe_str(df_row["bp_ket"]),
+          value=safe_str(df_row.get("keterangan_bipartit", "")),
           key=f"u_bp_ket_{id_pilihan}",
       )
 
@@ -393,17 +388,17 @@ with tab2:
       e_tp1, e_tp2 = st.columns(2)
       u_tp_tgl_surat_1 = e_tp1.date_input(
           "Tgl Surat Med 1",
-          value=str_to_date(df_row["tp_tgl_surat_1"]),
+          value=str_to_date(df_row.get("tgl_surat_med1")),
           key=f"u_tp1_{id_pilihan}",
       )
       u_tp_tgl_1 = e_tp2.date_input(
           "Tgl Pelaksanaan Med 1",
-          value=str_to_date(df_row["tp_tgl_1"]),
+          value=str_to_date(df_row.get("tgl_med1")),
           key=f"u_tp2_{id_pilihan}",
       )
       u_tp_ket_1 = st.text_area(
           "Keterangan Med 1",
-          value=safe_str(df_row["tp_ket_1"]),
+          value=safe_str(df_row.get("ket_med1", "")),
           key=f"u_tp_ket1_{id_pilihan}",
       )
 
@@ -411,17 +406,17 @@ with tab2:
       e_tp4, e_tp5 = st.columns(2)
       u_tp_tgl_surat_2 = e_tp4.date_input(
           "Tgl Surat Med 2",
-          value=str_to_date(df_row["tp_tgl_surat_2"]),
+          value=str_to_date(df_row.get("tgl_surat_med2")),
           key=f"u_tp4_{id_pilihan}",
       )
       u_tp_tgl_2 = e_tp5.date_input(
           "Tgl Pelaksanaan Med 2",
-          value=str_to_date(df_row["tp_tgl_2"]),
+          value=str_to_date(df_row.get("tgl_med2")),
           key=f"u_tp5_{id_pilihan}",
       )
       u_tp_ket_2 = st.text_area(
           "Keterangan Med 2",
-          value=safe_str(df_row["tp_ket_2"]),
+          value=safe_str(df_row.get("ket_med2", "")),
           key=f"u_tp_ket2_{id_pilihan}",
       )
 
@@ -429,17 +424,17 @@ with tab2:
       e_tp7, e_tp8 = st.columns(2)
       u_tp_tgl_surat_3 = e_tp7.date_input(
           "Tgl Surat Med 3",
-          value=str_to_date(df_row["tp_tgl_surat_3"]),
+          value=str_to_date(df_row.get("tgl_surat_med3")),
           key=f"u_tp7_{id_pilihan}",
       )
       u_tp_tgl_3 = e_tp8.date_input(
           "Tgl Pelaksanaan Med 3",
-          value=str_to_date(df_row["tp_tgl_3"]),
+          value=str_to_date(df_row.get("tgl_med3")),
           key=f"u_tp8_{id_pilihan}",
       )
       u_tp_ket_3 = st.text_area(
           "Keterangan Med 3",
-          value=safe_str(df_row["tp_ket_3"]),
+          value=safe_str(df_row.get("ket_med3", "")),
           key=f"u_tp_ket3_{id_pilihan}",
       )
 
@@ -448,13 +443,13 @@ with tab2:
       e_sa1, e_sa2 = st.columns(2)
       u_sa_tanggal = e_sa1.date_input(
           "Tanggal Selesai",
-          value=str_to_date(df_row["sa_tanggal"]),
+          value=str_to_date(df_row.get("tanggal_selesai")),
           key=f"u_sa1_{id_pilihan}",
       )
 
       sa_idx = (
-          pilihan_selesai_opsi.index(df_row["sa_pilihan"])
-          if df_row["sa_pilihan"] in pilihan_selesai_opsi
+          pilihan_selesai_opsi.index(df_row["pilihan_penyelesaian"])
+          if df_row["pilihan_penyelesaian"] in pilihan_selesai_opsi
           else 0
       )
       u_sa_pilihan = e_sa2.selectbox(
@@ -465,7 +460,7 @@ with tab2:
       )
       u_sa_ket = st.text_area(
           "Keterangan Status Selesai",
-          value=safe_str(df_row["sa_ket"]),
+          value=safe_str(df_row.get("keterangan_selesai", "")),
           key=f"u_sa_ket_{id_pilihan}",
       )
 
@@ -474,17 +469,17 @@ with tab2:
       e_d1, e_d2 = st.columns(2)
       u_dok_laporan = e_d1.text_input(
           "Link Unggah Dokumen Laporan",
-          value=safe_str(df_row["dok_laporan"]),
+          value=safe_str(df_row.get("link_dokumen", "")),
           key=f"u_d1_{id_pilihan}",
       )
       u_dok_selesai = e_d2.text_input(
           "Link Unggah Laporan Selesai",
-          value=safe_str(df_row["dok_selesai"]),
+          value=safe_str(df_row.get("link_laporan_selesai", "")),
           key=f"u_d2_{id_pilihan}",
       )
       u_catatan = st.text_area(
           "Catatan Tambahan",
-          value=safe_str(df_row["catatan"]),
+          value=safe_str(df_row.get("catatan", "")),
           key=f"u_cat_{id_pilihan}",
       )
 
@@ -499,33 +494,33 @@ with tab2:
               "terlapor": u_terlapor,
               "email_terlapor": u_email_terlapor,
               "nib_terlapor": u_nib_terlapor,
-              "jenis_usaha_terlapor": u_jenis_usaha_terlapor,
-              "alamat": u_alamat,
-              "no_telp": u_no_telp,
+              "jenis_usaha": u_jenis_usaha_terlapor,
+              "alamat_pelapor": u_alamat,
+              "telepon_pelapor": u_no_telp,
               "alamat_terlapor": u_alamat_terlapor,
-              "no_telp_terlapor": u_no_telp_terlapor,
+              "telepon_terlapor": u_no_telp_terlapor,
               "mediator": u_mediator,
               "status": u_status,
-              "bd_ket": u_bd_ket,
-              "kl_tgl_surat": f_date(u_kl_tgl_surat),
-              "kl_tgl_klarifikasi": f_date(u_kl_tgl_klarifikasi),
-              "kl_ket": u_kl_ket,
-              "bp_tgl_pelaksanaan": f_date(u_bp_tgl_pelaksanaan),
-              "bp_ket": u_bp_ket,
-              "tp_tgl_surat_1": f_date(u_tp_tgl_surat_1),
-              "tp_tgl_1": f_date(u_tp_tgl_1),
-              "tp_ket_1": u_tp_ket_1,
-              "tp_tgl_surat_2": f_date(u_tp_tgl_surat_2),
-              "tp_tgl_2": f_date(u_tp_tgl_2),
-              "tp_ket_2": u_tp_ket_2,
-              "tp_tgl_surat_3": f_date(u_tp_tgl_surat_3),
-              "tp_tgl_3": f_date(u_tp_tgl_3),
-              "tp_ket_3": u_tp_ket_3,
-              "sa_tanggal": f_date(u_sa_tanggal),
-              "sa_pilihan": u_sa_pilihan,
-              "sa_ket": u_sa_ket,
-              "dok_laporan": u_dok_laporan,
-              "dok_selesai": u_dok_selesai,
+              "keterangan_status": u_bd_ket,
+              "tgl_surat_klarifikasi": f_date(u_kl_tgl_surat),
+              "tgl_klarifikasi": f_date(u_kl_tgl_klarifikasi),
+              "keterangan_klarifikasi": u_kl_ket,
+              "tgl_bipartit": f_date(u_bp_tgl_pelaksanaan),
+              "keterangan_bipartit": u_bp_ket,
+              "tgl_surat_med1": f_date(u_tp_tgl_surat_1),
+              "tgl_med1": f_date(u_tp_tgl_1),
+              "ket_med1": u_tp_ket_1,
+              "tgl_surat_med2": f_date(u_tp_tgl_surat_2),
+              "tgl_med2": f_date(u_tp_tgl_2),
+              "ket_med2": u_tp_ket_2,
+              "tgl_surat_med3": f_date(u_tp_tgl_surat_3),
+              "tgl_med3": f_date(u_tp_tgl_3),
+              "ket_med3": u_tp_ket_3,
+              "tanggal_selesai": f_date(u_sa_tanggal),
+              "pilihan_penyelesaian": u_sa_pilihan,
+              "keterangan_selesai": u_sa_ket,
+              "link_dokumen": u_dok_laporan,
+              "link_laporan_selesai": u_dok_selesai,
               "catatan": u_catatan,
           }
           supabase.table("tabel_pengaduan").update(data_update).eq(
