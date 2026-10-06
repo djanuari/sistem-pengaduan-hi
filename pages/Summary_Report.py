@@ -104,29 +104,28 @@ if not df.empty:
       df_filtered = df_filtered[df_filtered["bulan"] == bulan_opsi[pilih_bulan]]
 
   # ==========================================
-  # LOGIKA NOTIFIKASI > 30 HARI KALENDER
+  # LOGIKA NOTIFIKASI & DAFTAR ID > 30 HARI
   # ==========================================
   if "tanggal_masuk" in df_filtered.columns:
-    # Hitung selisih hari dari tanggal masuk ke hari ini (menggunakan UTC/datetime lokal)
     sekarang = pd.Timestamp.now().normalize()
+    id_terlambat = []
     
     def cek_terlambat(row):
       tgl_masuk = pd.to_datetime(row.get("tanggal_masuk"), errors="coerce")
       status = str(row.get("status", "")).lower()
       
-      # Jika belum selesai dan tanggal masuk valid
       if pd.notna(tgl_masuk) and status != "selesai":
         selisih_hari = (sekarang - pd.Timestamp(tgl_masuk).normalize()).days
         if selisih_hari > 30:
+          id_terlambat.append(str(row.get("id_pengaduan")))
           return f"⚠️ Terlambat ({selisih_hari} Hari)"
       return "Normal / Selesai"
 
     df_filtered["status_waktu"] = df_filtered.apply(cek_terlambat, axis=1)
     
-    # Hitung berapa banyak pengaduan yang melebihi 30 hari
-    total_terlambat = df_filtered["status_waktu"].str.contains("⚠️").sum()
-    if total_terlambat > 0:
-      st.error(f"🚨 Perhatian: Ada **{total_terlambat} pengaduan** yang telah melewati rentang waktu 30 hari sejak tanggal masuk dan belum berstatus selesai!")
+    if len(id_terlambat) > 0:
+      daftar_id_str = ", ".join(id_terlambat)
+      st.error(f"🚨 Perhatian: Pengaduan dengan **ID: [{daftar_id_str}]** telah melewati rentang waktu 30 hari sejak tanggal masuk dan belum berstatus selesai!")
     else:
       st.success("✅ Semua pengaduan aktif berada dalam batas waktu penanganan (di bawah 30 hari).")
 
