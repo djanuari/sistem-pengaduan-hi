@@ -66,11 +66,43 @@ with tab1:
         df_rekap["Belum Terdaftar"] = (
             df_rekap["jumlah_ptk"] - df_rekap["sudah_terdaftar"]
         )
+
+        # Hitung total keseluruhan untuk baris Total di bawah
+        tot_satuan = (
+            df_rekap["jumlah_satuan_pendidikan"].sum()
+            if "jumlah_satuan_pendidikan" in df_rekap.columns
+            else 0
+        )
+        tot_ptk = df_rekap["jumlah_ptk"].sum()
+        tot_sudah = df_rekap["sudah_terdaftar"].sum()
+        tot_belum = df_rekap["Belum Terdaftar"].sum()
+        tot_persen = round(
+            (tot_sudah / tot_ptk * 100) if tot_ptk > 0 else 0, 2
+        )
+
         df_rekap["Persentase"] = (
             df_rekap["sudah_terdaftar"]
             / df_rekap["jumlah_ptk"].replace(0, 1)
         ) * 100
         df_rekap["Persentase"] = df_rekap["Persentase"].round(2).astype(str) + "%"
+
+        # Tambahkan baris Total di akhir dataframe
+        row_total = {
+            "jenjang": "TOTAL KESELURUHAN",
+            "jumlah_satuan_pendidikan": tot_satuan,
+            "jumlah_ptk": tot_ptk,
+            "sudah_terdaftar": tot_sudah,
+            "Belum Terdaftar": tot_belum,
+            "Persentase": f"{tot_persen}%",
+        }
+        # Sesuaikan jika ada kolom ID/created_at di rekap
+        for col in df_rekap.columns:
+          if col not in row_total:
+            row_total[col] = ""
+
+        df_rekap = pd.concat(
+            [df_rekap, pd.DataFrame([row_total])], ignore_index=True
+        )
 
       df_rekap = df_rekap.drop(columns=["created_at"], errors="ignore")
       st.dataframe(df_rekap, use_container_width=True, hide_index=True)
@@ -145,6 +177,13 @@ with tab1:
                 ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
                 ("BACKGROUND", (0, 1), (-1, -1), (0.95, 0.95, 0.95)),
                 ("GRID", (0, 0), (-1, -1), 0.5, (0.5, 0.5, 0.5)),
+                (
+                    "BACKGROUND",
+                    (0, -1),
+                    (-1, -1),
+                    (0.85, 0.90, 0.95),
+                ),  # Highlight baris total
+                ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
             ])
         )
         elements.append(t)
@@ -484,24 +523,4 @@ with tab3:
               res_rekap_j = (
                   supabase.table("tabel_rekap_pendidikan")
                   .select("sudah_terdaftar")
-                  .eq("jenjang", j_nama_jenjang)
-                  .execute()
-              )
-              if res_rekap_j.data:
-                curr_val_j = (
-                    res_rekap_j.data[0].get("sudah_terdaftar", 0) or 0
-                )
-                new_val_j = max(0, curr_val_j - j_sudah_val)
-                supabase.table("tabel_rekap_pendidikan").update(
-                    {"sudah_terdaftar": new_val_j}
-                ).eq("jenjang", j_nama_jenjang).execute()
-
-            st.success("Data berhasil dihapus dan rekapitulasi diperbarui!")
-            st.rerun()
-    else:
-      st.info(
-          f"Belum ada data sekolah terdaftar untuk jenjang {pilih_jenjang_detail}."
-      )
-
-  except Exception as e:
-    st.error(f"Gagal memuat rincian jenjang: {e}")
+                  .
