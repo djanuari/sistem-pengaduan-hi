@@ -22,7 +22,7 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
-# Inisialisasi tab terlebih dahulu agar variabel tab1 dan tab2 dikenali
+# Inisialisasi Tab Menu
 tab1, tab2 = st.tabs(
     ["📋 Tabel Rekapitulasi Utama", "🏫 Input & Daftar Detail Sekolah"]
 )
@@ -38,9 +38,11 @@ with tab1:
           "sudah_terdaftar" in df_rekap.columns
           and "jumlah_ptk" in df_rekap.columns
       ):
+        # Hitung Belum Terdaftar = Total PTK - Sudah Terdaftar
         df_rekap["Belum Terdaftar"] = (
             df_rekap["jumlah_ptk"] - df_rekap["sudah_terdaftar"]
         )
+        # Hitung Persentase
         df_rekap["Persentase"] = (
             df_rekap["sudah_terdaftar"]
             / df_rekap["jumlah_ptk"].replace(0, 1)
@@ -78,8 +80,9 @@ with tab2:
     status_pendaftaran = st.selectbox(
         "Status Kepesertaan", ["Sudah Terdaftar", "Belum Terdaftar"]
     )
+    # Kolom isian jumlah PTK yang mendaftar/terdaftar
     jumlah_ptk_sekolah = st.number_input(
-        "Jumlah PTK di Sekolah Ini", min_value=0, value=0
+        "Jumlah PTK Terdaftar di Sekolah Ini", min_value=0, value=0
     )
     keterangan_sekolah = st.text_input("Keterangan Tambahan")
 
@@ -90,6 +93,7 @@ with tab2:
         st.error("Nama sekolah wajib diisi!")
       else:
         try:
+          # Simpan data detail sekolah beserta jumlah PTK-nya
           data_sekolah = {
               "jenjang": pilih_jenjang,
               "nama_sekolah": nama_sekolah,
@@ -100,6 +104,7 @@ with tab2:
           }
           supabase.table("tabel_detail_sekolah").insert(data_sekolah).execute()
 
+          # Jika statusnya "Sudah Terdaftar", akumulasikan jumlah PTK ke tabel rekap utama
           if status_pendaftaran == "Sudah Terdaftar" and jumlah_ptk_sekolah > 0:
             res_rekap = (
                 supabase.table("tabel_rekap_pendidikan")
@@ -117,7 +122,7 @@ with tab2:
 
           st.success(
               f"Data sekolah **{nama_sekolah}** berhasil disimpan dan jumlah"
-              " PTK terdaftar diperbarui!"
+              " pendaftar diperbarui!"
           )
           st.rerun()
         except Exception as e:
