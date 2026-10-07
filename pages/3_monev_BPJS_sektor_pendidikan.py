@@ -26,6 +26,53 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
+
+def create_pdf_report(df, title_text):
+  buffer = BytesIO()
+  doc = SimpleDocTemplate(
+      buffer,
+      pagesize=landscape(A4),
+      rightMargin=30,
+      leftMargin=30,
+      topMargin=30,
+      bottomMargin=30,
+  )
+  elements = []
+  styles = getSampleStyleSheet()
+  title_style = ParagraphStyle(
+      "TitleStyle",
+      parent=styles["Heading1"],
+      fontSize=14,
+      alignment=1,
+      spaceAfter=15,
+  )
+
+  elements.append(Paragraph(title_text, title_style))
+  elements.append(Spacer(1, 10))
+
+  table_data = [list(df.columns)]
+  for _, row in df.iterrows():
+    table_data.append([str(val) for val in row.values])
+
+  t = Table(table_data)
+  t.setStyle(
+      TableStyle([
+          ("BACKGROUND", (0, 0), (-1, 0), (0.2, 0.4, 0.6)),
+          ("TEXTCOLOR", (0, 0), (-1, 0), (1, 1, 1)),
+          ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+          ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+          ("FONTSIZE", (0, 0), (-1, -1), 8),
+          ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+          ("BACKGROUND", (0, 1), (-1, -1), (0.95, 0.95, 0.95)),
+          ("GRID", (0, 0), (-1, -1), 0.5, (0.5, 0.5, 0.5)),
+      ])
+  )
+  elements.append(t)
+  doc.build(elements)
+  buffer.seek(0)
+  return buffer.getvalue()
+
+
 list_jenjang = [
     "PAUD",
     "Kelompok Bermain (KB)",
@@ -133,55 +180,9 @@ with tab1:
         )
 
       with col_dl3:
-        buffer_pdf = BytesIO()
-        doc = SimpleDocTemplate(
-            buffer_pdf,
-            pagesize=landscape(A4),
-            rightMargin=30,
-            leftMargin=30,
-            topMargin=30,
-            bottomMargin=30,
+        pdf_data = create_pdf_report(
+            df_rekap, "Laporan Rekapitulasi Monitoring BPJS Sektor Pendidikan"
         )
-        elements = []
-        styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(
-            "TitleStyle",
-            parent=styles["Heading1"],
-            fontSize=14,
-            alignment=1,
-            spaceAfter=15,
-        )
-        elements.append(
-            Paragraph(
-                "Laporan Rekapitulasi Monitoring BPJS Sektor Pendidikan",
-                title_style,
-            )
-        )
-        elements.append(Spacer(1, 10))
-
-        table_data = [list(df_rekap.columns)]
-        for _, row in df_rekap.iterrows():
-          table_data.append([str(val) for val in row.values])
-
-        t = Table(table_data)
-        t.setStyle(
-            TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), (0.2, 0.4, 0.6)),
-                ("TEXTCOLOR", (0, 0), (-1, 0), (1, 1, 1)),
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 8),
-                ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
-                ("BACKGROUND", (0, 1), (-1, -1), (0.95, 0.95, 0.95)),
-                ("GRID", (0, 0), (-1, -1), 0.5, (0.5, 0.5, 0.5)),
-                ("BACKGROUND", (0, -1), (-1, -1), (0.85, 0.90, 0.95)),
-                ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-            ])
-        )
-        elements.append(t)
-        doc.build(elements)
-        pdf_data = buffer_pdf.getvalue()
-
         st.download_button(
             label="Unduh PDF",
             data=pdf_data,
@@ -263,49 +264,3 @@ with tab2:
 
   try:
     res_detail = (
-        supabase.table("tabel_detail_sekolah")
-        .select("*")
-        .order("id", desc=False)
-        .execute()
-    )
-    df_detail = pd.DataFrame(res_detail.data)
-
-    if not df_detail.empty:
-      df_detail = df_detail.drop(columns=["created_at"], errors="ignore")
-
-      pilih_filter = st.selectbox(
-          "Filter Berdasarkan Jenjang:", ["Semua Jenjang"] + list_jenjang
-      )
-      if pilih_filter != "Semua Jenjang":
-        df_detail_filtered = df_detail[df_detail["jenjang"] == pilih_filter]
-      else:
-        df_detail_filtered = df_detail
-
-      st.dataframe(df_detail_filtered, use_container_width=True, hide_index=True)
-
-      st.markdown("### Hapus Data Sekolah")
-      opsi_sekolah = {
-          f"{row['nama_sekolah']} ({row['jenjang']}) - ID: {row['id']}": row[
-              "id"
-          ]
-          for _, row in df_detail_filtered.iterrows()
-      }
-
-      if opsi_sekolah:
-        pilih_hapus = st.selectbox(
-            "Pilih sekolah yang ingin dihapus:", list(opsi_sekolah.keys())
-        )
-
-        if st.button("Hapus Data Terpilih", type="secondary"):
-          target_id = opsi_sekolah[pilih_hapus]
-          data_hapus = (
-              supabase.table("tabel_detail_sekolah")
-              .select("*")
-              .eq("id", target_id)
-              .execute()
-          )
-
-          if data_hapus.data:
-            item = data_hapus.data[0]
-            j_jenjang = item.get("jenjang")
-            j_sudah = item.get("jumlah_
