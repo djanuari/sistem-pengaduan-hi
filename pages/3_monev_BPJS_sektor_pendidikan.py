@@ -22,7 +22,6 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
-# Tab Menu untuk Tampilan Rekap & Input Detail Sekolah
 tab1, tab2 = st.tabs(
     ["📋 Tabel Rekapitulasi Utama", "🏫 Input & Daftar Detail Sekolah"]
 )
@@ -34,23 +33,24 @@ with tab1:
     df_rekap = pd.DataFrame(res.data)
 
     if not df_rekap.empty:
-      # Hitung Persentase otomatis jika kolom tersedia
+      # Hitung otomatis Belum Terdaftar jika kolom sudah_terdaftar & jumlah_ptk ada
       if (
           "sudah_terdaftar" in df_rekap.columns
-          and "jumlah_satuan_pendidikan" in df_rekap.columns
+          and "jumlah_ptk" in df_rekap.columns
       ):
+        df_rekap["Belum Terdaftar"] = (
+            df_rekap["jumlah_ptk"] - df_rekap["sudah_terdaftar"]
+        )
+        # Hitung Persentase (Sudah Terdaftar / Jumlah PTK * 100)
         df_rekap["Persentase"] = (
             df_rekap["sudah_terdaftar"]
-            / df_rekap["jumlah_satuan_pendidikan"].replace(0, 1)
+            / df_rekap["jumlah_ptk"].replace(0, 1)
         ) * 100
         df_rekap["Persentase"] = df_rekap["Persentase"].round(2).astype(str) + "%"
 
       st.dataframe(df_rekap, use_container_width=True)
     else:
-      st.info(
-          "Belum ada data rekap. Anda dapat mengisi data awal atau melakukan"
-          " sinkronisasi."
-      )
+      st.info("Belum ada data rekap.")
   except Exception as e:
     st.error(f"Gagal memuat rekapitulasi: {e}")
 
@@ -71,11 +71,16 @@ with tab2:
   ]
 
   with st.form("form_detail_sekolah"):
-    pilih_jenjang = st.selectbox("Pilih Jenjang / Jenis Satuan Pendidikan", list_jenjang)
+    pilih_jenjang = st.selectbox(
+        "Pilih Jenjang / Jenis Satuan Pendidikan", list_jenjang
+    )
     nama_sekolah = st.text_input("Nama Sekolah / Lembaga")
     alamat_sekolah = st.text_area("Alamat Sekolah")
     status_pendaftaran = st.selectbox(
         "Status Kepesertaan", ["Sudah Terdaftar", "Belum Terdaftar"]
+    )
+    jumlah_ptk_sekolah = st.number_input(
+        "Jumlah PTK di Sekolah Ini", min_value=0, value=0
     )
     keterangan_sekolah = st.text_input("Keterangan Tambahan")
 
@@ -91,6 +96,7 @@ with tab2:
               "nama_sekolah": nama_sekolah,
               "alamat": alamat_sekolah,
               "status_terdaftar": status_pendaftaran,
+              "jumlah_ptk": jumlah_ptk_sekolah,
               "keterangan": keterangan_sekolah,
           }
           supabase.table("tabel_detail_sekolah").insert(data_sekolah).execute()
@@ -104,7 +110,6 @@ with tab2:
     res_detail = supabase.table("tabel_detail_sekolah").select("*").execute()
     df_detail = pd.DataFrame(res_detail.data)
     if not df_detail.empty:
-      # Filter berdasarkan jenjang
       pilih_filter = st.selectbox(
           "Filter Berdasarkan Jenjang:", ["Semua Jenjang"] + list_jenjang
       )
