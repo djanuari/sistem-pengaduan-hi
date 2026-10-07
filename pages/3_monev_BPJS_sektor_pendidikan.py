@@ -86,11 +86,12 @@ list_jenjang = [
     "Pendidikan Tinggi",
 ]
 
-tab1, tab2, tab3 = st.tabs(
+tab1, tab2, tab3, tab4 = st.tabs(
     [
         "Tabel Rekapitulasi Utama",
         "Input & Daftar Detail Sekolah",
         "Rincian per Jenjang Pendidikan",
+        "Grafik Persentase",
     ]
 )
 
@@ -197,8 +198,8 @@ with tab1:
 with tab2:
   st.subheader("Pencatatan & Manajemen Nama Sekolah per Jenjang")
 
-  with st.expander("Tambah Data Sekolah Baru"):
-    with st.form("form_detail_sekolah"):
+  with st.expander("Tambah Data Sekolah Baru", expanded=True):
+    with st.form("form_detail_sekolah", clear_on_submit=True):
       pilih_jenjang = st.selectbox(
           "Pilih Jenjang / Jenis Satuan Pendidikan", list_jenjang
       )
@@ -255,7 +256,6 @@ with tab2:
                 ).eq("jenjang", pilih_jenjang).execute()
 
             st.success("Data sekolah berhasil disimpan dan rekap diperbarui!")
-            st.rerun()
           except Exception as e:
             st.error(f"Gagal menyimpan data sekolah: {e}")
 
@@ -381,115 +381,4 @@ with tab3:
       mcol2.metric("Jumlah PTK", tot_ptk)
       mcol3.metric("Sudah Terdaftar", sudah_reg)
       mcol4.metric("Belum Terdaftar", belum_reg)
-      mcol5.metric("Persentase", f"{persen_reg}%")
-
-    st.markdown("---")
-    st.markdown(f"**Daftar Sekolah / Lembaga pada Jenjang {pilih_jenjang_detail}:**")
-
-    if not df_j_terpilih.empty:
-      df_j_display = df_j_terpilih.drop(columns=["created_at"], errors="ignore")
-      st.dataframe(df_j_display, use_container_width=True, hide_index=True)
-
-      st.markdown("##### Unduh Laporan Jenjang Ini")
-      dcol1, dcol2, dcol3 = st.columns(3)
-
-      with dcol1:
-        csv_j = df_j_display.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="Unduh CSV",
-            data=csv_j,
-            file_name=f"rekap_{pilih_jenjang_detail.lower().replace(' ', '_')}.csv",
-            mime="text/csv",
-            key=f"csv_{pilih_jenjang_detail}",
-        )
-
-      with dcol2:
-        out_ex_j = BytesIO()
-        with pd.ExcelWriter(out_ex_j, engine="openpyxl") as writer:
-          df_j_display.to_excel(
-              writer, index=False, sheet_name=pilih_jenjang_detail[:30]
-          )
-        ex_data_j = out_ex_j.getvalue()
-        st.download_button(
-            label="Unduh Excel",
-            data=ex_data_j,
-            file_name=f"rekap_{pilih_jenjang_detail.lower().replace(' ', '_')}.xlsx",
-            mime=(
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            ),
-            key=f"excel_{pilih_jenjang_detail}",
-        )
-
-      with dcol3:
-        pdf_j = create_pdf_report(
-            df_j_display, f"Laporan Monitoring BPJS - Jenjang {pilih_jenjang_detail}"
-        )
-        st.download_button(
-            label="Unduh PDF",
-            data=pdf_j,
-            file_name=f"rekap_{pilih_jenjang_detail.lower().replace(' ', '_')}.pdf",
-            mime="application/pdf",
-            key=f"pdf_{pilih_jenjang_detail}",
-        )
-
-      st.markdown("---")
-      st.markdown(f"##### Hapus Data Sekolah ({pilih_jenjang_detail})")
-      opsi_j_sekolah = {
-          f"{row['nama_sekolah']} - ID: {row['id']}": row["id"]
-          for _, row in df_j_terpilih.iterrows()
-      }
-
-      if opsi_j_sekolah:
-        pilih_hapus_j = st.selectbox(
-            "Pilih sekolah yang ingin dihapus:",
-            list(opsi_j_sekolah.keys()),
-            key=f"del_sel_{pilih_jenjang_detail}",
-        )
-
-        if st.button(
-            "Hapus Data Ini",
-            type="secondary",
-            key=f"btn_del_{pilih_jenjang_detail}",
-        ):
-          target_id_j = opsi_j_sekolah[pilih_hapus_j]
-          data_hapus_j = (
-              supabase.table("tabel_detail_sekolah")
-              .select("*")
-              .eq("id", target_id_j)
-              .execute()
-          )
-
-          if data_hapus_j.data:
-            item_j = data_hapus_j.data[0]
-            j_nama_jenjang = item_j.get("jenjang")
-            j_sudah_val = item_j.get("jumlah_sudah", 0) or 0
-
-            supabase.table("tabel_detail_sekolah").delete().eq(
-                "id", target_id_j
-            ).execute()
-
-            if j_sudah_val > 0 and j_nama_jenjang:
-              res_rekap_j = (
-                  supabase.table("tabel_rekap_pendidikan")
-                  .select("sudah_terdaftar")
-                  .eq("jenjang", j_nama_jenjang)
-                  .execute()
-              )
-              if res_rekap_j.data:
-                curr_val_j = (
-                    res_rekap_j.data[0].get("sudah_terdaftar", 0) or 0
-                )
-                new_val_j = max(0, curr_val_j - j_sudah_val)
-                supabase.table("tabel_rekap_pendidikan").update(
-                    {"sudah_terdaftar": new_val_j}
-                ).eq("jenjang", j_nama_jenjang).execute()
-
-            st.success("Data berhasil dihapus dan rekapitulasi diperbarui!")
-            st.rerun()
-    else:
-      st.info(
-          f"Belum ada data sekolah terdaftar untuk jenjang {pilih_jenjang_detail}."
-      )
-
-  except Exception as e:
-    st.error(f"Gagal memuat rincian jenjang: {e}")
+      mcol5.metric("Persentase", f"{persen
