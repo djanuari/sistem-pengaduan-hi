@@ -97,26 +97,60 @@ with tab1:
                     if col not in row_total:
                         row_total[col] = ""
                         
-                df_rekap = pd.concat([df_rekap, pd.DataFrame([row_total])], ignore_index=True)
+                df_rekap_display = pd.concat([df_rekap, pd.DataFrame([row_total])], ignore_index=True)
+            else:
+                df_rekap_display = df_rekap.copy()
                 
-            df_rekap = df_rekap.drop(columns=["created_at"], errors="ignore")
-            st.dataframe(df_rekap, use_container_width=True, hide_index=True)
+            df_rekap_display = df_rekap_display.drop(columns=["created_at"], errors="ignore")
+            st.dataframe(df_rekap_display, use_container_width=True, hide_index=True)
             
+            # --- FITUR EDIT JUMLAH SATUAN PENDIDIKAN & PTK ---
+            st.markdown("---")
+            with st.expander("✏️ Edit Jumlah Satuan Pendidikan & Total PTK per Jenjang"):
+                with st.form("form_edit_rekap"):
+                    pilih_j_edit = st.selectbox("Pilih Jenjang yang Ingin Diubah:", list_jenjang)
+                    
+                    # Ambil data awal untuk default value di form
+                    current_row = df_rekap[df_rekap["jenjang"] == pilih_j_edit]
+                    default_satuan = int(current_row["jumlah_satuan_pendidikan"].values[0]) if not current_row.empty and "jumlah_satuan_pendidikan" in current_row.columns else 0
+                    default_ptk = int(current_row["jumlah_ptk"].values[0]) if not current_row.empty and "jumlah_ptk" in current_row.columns else 0
+                    
+                    col_e1, col_e2 = st.columns(2)
+                    with col_e1:
+                        new_jumlah_satuan = st.number_input("Jumlah Satuan Pendidikan Baru", min_value=0, value=default_satuan)
+                    with col_e2:
+                        new_jumlah_ptk = st.number_input("Jumlah Total PTK Baru", min_value=0, value=default_ptk)
+                        
+                    submit_edit_rekap = st.form_submit_button("Simpan Perubahan Rekap", type="primary")
+                    
+                    if submit_edit_rekap:
+                        try:
+                            supabase.table("tabel_rekap_pendidikan").update({
+                                "jumlah_satuan_pendidikan": new_jumlah_satuan,
+                                "jumlah_ptk": new_jumlah_ptk
+                            }).eq("jenjang", pilih_j_edit).execute()
+                            
+                            st.success(f"Data rekap untuk jenjang **{pilih_j_edit}** berhasil diperbarui!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Gagal memperbarui rekap: {e}")
+            # ------------------------------------------------
+
             st.markdown("---")
             st.subheader("Unduh Laporan Rekapitulasi")
             
             col_dl1, col_dl2, col_dl3 = st.columns(3)
             with col_dl1:
-                csv_data = df_rekap.to_csv(index=False).encode("utf-8")
+                csv_data = df_rekap_display.to_csv(index=False).encode("utf-8")
                 st.download_button("Unduh CSV", data=csv_data, file_name="rekap_monitoring_bpjs.csv", mime="text/csv")
             with col_dl2:
                 output_excel = BytesIO()
                 with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
-                    df_rekap.to_excel(writer, index=False, sheet_name="Rekap BPJS")
+                    df_rekap_display.to_excel(writer, index=False, sheet_name="Rekap BPJS")
                 excel_data = output_excel.getvalue()
                 st.download_button("Unduh Excel", data=excel_data, file_name="rekap_monitoring_bpjs.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             with col_dl3:
-                pdf_data = create_pdf_report(df_rekap, "Laporan Rekapitulasi Monitoring BPJS Sektor Pendidikan")
+                pdf_data = create_pdf_report(df_rekap_display, "Laporan Rekapitulasi Monitoring BPJS Sektor Pendidikan")
                 st.download_button("Unduh PDF", data=pdf_data, file_name="rekap_monitoring_bpjs.pdf", mime="application/pdf")
         else:
             st.info("Belum ada data rekap.")
