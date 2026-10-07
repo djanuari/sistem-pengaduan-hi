@@ -26,9 +26,27 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
-# Inisialisasi Tab Menu
-tab1, tab2 = st.tabs(
-    ["📋 Tabel Rekapitulasi Utama", "🏫 Input & Daftar Detail Sekolah"]
+# Daftar Jenjang Pendidikan Resmi
+list_jenjang = [
+    "PAUD",
+    "Kelompok Bermain (KB)",
+    "Taman Kanak-Kanak (TK)",
+    "Sekolah Dasar (SD)",
+    "Sekolah Menengah Pertama (SMP)",
+    "Sekolah Menengah Atas (SMA)",
+    "Sekolah Menengah Kejuruan (SMK)",
+    "Sekolah Luar Biasa (SLB)",
+    "Lembaga Kursus",
+    "Pendidikan Tinggi",
+]
+
+# Inisialisasi 3 Tab Menu
+tab1, tab2, tab3 = st.tabs(
+    [
+        "📋 Tabel Rekapitulasi Utama",
+        "🏫 Input & Daftar Detail Sekolah",
+        "📂 Rincian per Jenjang Pendidikan",
+    ]
 )
 
 with tab1:
@@ -152,19 +170,6 @@ with tab1:
 
 with tab2:
   st.subheader("Pencatatan & Manajemen Nama Sekolah per Jenjang")
-
-  list_jenjang = [
-      "PAUD",
-      "Kelompok Bermain (KB)",
-      "Taman Kanak-Kanak (TK)",
-      "Sekolah Dasar (SD)",
-      "Sekolah Menengah Pertama (SMP)",
-      "Sekolah Menengah Atas (SMA)",
-      "Sekolah Menengah Kejuruan (SMK)",
-      "Sekolah Luar Biasa (SLB)",
-      "Lembaga Kursus",
-      "Pendidikan Tinggi",
-  ]
 
   with st.expander("➕ Tambah Data Sekolah Baru"):
     with st.form("form_detail_sekolah"):
@@ -314,3 +319,64 @@ with tab2:
       st.info("Belum ada data detail sekolah yang diinput.")
   except Exception as e:
     st.info(f"Terjadi kesalahan saat memuat data detail: {e}")
+
+with tab3:
+  st.subheader("📂 Rincian Rekapitulasi Berdasarkan Jenis Jenjang Pendidikan")
+  st.write(
+      "Pilih salah satu jenis jenjang pendidikan di bawah untuk melihat rincian"
+      " satuan pendidikan dan total PTK-nya secara spesifik."
+  )
+
+  pilih_jenjang_detail = st.selectbox(
+      "Pilih Jenjang Pendidikan:", list_jenjang, key="select_jenjang_detail"
+  )
+
+  try:
+    # Ambil data rincian sekolah sesuai jenjang yang dipilih
+    res_jenjang_terpilih = (
+        supabase.table("tabel_detail_sekolah")
+        .select("*")
+        .eq("jenjang", pilih_jenjang_detail)
+        .order("id", desc=False)
+        .execute()
+    )
+    df_j_terpilih = pd.DataFrame(res_jenjang_terpilih.data)
+
+    # Ambil data rekap utama untuk jenjang tersebut
+    res_rekap_single = (
+        supabase.table("tabel_rekap_pendidikan")
+        .select("*")
+        .eq("jenjang", pilih_jenjang_detail)
+        .execute()
+    )
+
+    st.markdown(f"### Ringkasan untuk Jenjang: **{pilih_jenjang_detail}**")
+
+    if res_rekap_single.data:
+      data_R = res_rekap_single.data[0]
+      tot_satuan = data_R.get("jumlah_satuan_pendidikan", 0) or 0
+      tot_ptk = data_R.get("jumlah_ptk", 0) or 0
+      sudah_reg = data_R.get("sudah_terdaftar", 0) or 0
+      belum_reg = max(0, tot_ptk - sudah_reg)
+      persen_reg = round((sudah_reg / tot_ptk * 100) if tot_ptk > 0 else 0, 2)
+
+      mcol1, mcol2, mcol3, mcol4, mcol5 = st.columns(5)
+      mcol1.metric("Jumlah Satuan", tot_satuan)
+      mcol2.metric("Jumlah PTK", tot_ptk)
+      mcol3.metric("Sudah Terdaftar", sudah_reg)
+      mcol4.metric("Belum Terdaftar", belum_reg)
+      mcol5.metric("Persentase", f"{persen_reg}%")
+
+    st.markdown("---")
+    st.markdown(f"**Daftar Sekolah / Lembaga pada Jenjang {pilih_jenjang_detail}:**")
+
+    if not df_j_terpilih.empty:
+      df_j_terpilih = df_j_terpilih.drop(columns=["created_at"], errors="ignore")
+      st.dataframe(df_j_terpilih, use_container_width=True, hide_index=True)
+    else:
+      st.info(
+          f"Belum ada data sekolah terdaftar untuk jenjang {pilih_jenjang_detail}."
+      )
+
+  except Exception as e:
+    st.error(f"Gagal memuat rincian jenjang: {e}")
