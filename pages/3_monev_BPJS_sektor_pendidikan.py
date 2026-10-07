@@ -56,6 +56,9 @@ with tab1:
         ) * 100
         df_rekap["Persentase"] = df_rekap["Persentase"].round(2).astype(str) + "%"
 
+      # Hilangkan kolom created_at jika ada
+      df_rekap = df_rekap.drop(columns=["created_at"], errors="ignore")
+
       st.dataframe(df_rekap, use_container_width=True, hide_index=True)
 
       st.markdown("---")
@@ -218,97 +221,4 @@ with tab2:
               )
               if res_rekap.data:
                 current_val = res_rekap.data[0].get("sudah_terdaftar", 0) or 0
-                new_val = current_val + input_sudah
-
-                supabase.table("tabel_rekap_pendidikan").update(
-                    {"sudah_terdaftar": new_val}
-                ).eq("jenjang", pilih_jenjang).execute()
-
-            st.success(
-                f"Data sekolah **{nama_sekolah}** berhasil disimpan dan rekap"
-                " diperbarui!"
-            )
-            st.rerun()
-          except Exception as e:
-            st.error(f"Gagal menyimpan data sekolah: {e}")
-
-  st.markdown("---")
-  st.subheader("📋 Daftar Sekolah & Fitur Hapus Data")
-
-  try:
-    res_detail = (
-        supabase.table("tabel_detail_sekolah")
-        .select("*")
-        .order("id", desc=False)
-        .execute()
-    )
-    df_detail = pd.DataFrame(res_detail.data)
-
-    if not df_detail.empty:
-      pilih_filter = st.selectbox(
-          "Filter Berdasarkan Jenjang:", ["Semua Jenjang"] + list_jenjang
-      )
-      if pilih_filter != "Semua Jenjang":
-        df_detail_filtered = df_detail[df_detail["jenjang"] == pilih_filter]
-      else:
-        df_detail_filtered = df_detail
-
-      st.dataframe(df_detail_filtered, use_container_width=True, hide_index=True)
-
-      st.markdown("### 🗑️ Hapus Data Sekolah")
-      opsi_sekolah = {
-          f"{row['nama_sekolah']} ({row['jenjang']}) - ID: {row['id']}": row[
-              "id"
-          ]
-          for _, row in df_detail_filtered.iterrows()
-      }
-
-      if opsi_sekolah:
-        pilih_hapus = st.selectbox(
-            "Pilih sekolah yang ingin dihapus:", list(opsi_sekolah.keys())
-        )
-
-        if st.button("🗑️ Hapus Data Terpilih", type="secondary"):
-          target_id = opsi_sekolah[pilih_hapus]
-
-          data_hapus = (
-              supabase.table("tabel_detail_sekolah")
-              .select("*")
-              .eq("id", target_id)
-              .execute()
-          )
-
-          if data_hapus.data:
-            item = data_hapus.data[0]
-            j_jenjang = item.get("jenjang")
-            j_sudah = item.get("jumlah_sudah", 0) or 0
-
-            supabase.table("tabel_detail_sekolah").delete().eq(
-                "id", target_id
-            ).execute()
-
-            if j_sudah > 0 and j_jenjang:
-              res_rekap = (
-                  supabase.table("tabel_rekap_pendidikan")
-                  .select("sudah_terdaftar")
-                  .eq("jenjang", j_jenjang)
-                  .execute()
-              )
-              if res_rekap.data:
-                current_val = res_rekap.data[0].get("sudah_terdaftar", 0) or 0
-                new_val = max(0, current_val - j_sudah)
-
-                supabase.table("tabel_rekap_pendidikan").update(
-                    {"sudah_terdaftar": new_val}
-                ).eq("jenjang", j_jenjang).execute()
-
-            st.success(
-                "Data sekolah berhasil dihapus dan rekapitulasi diperbarui!"
-            )
-            st.rerun()
-      else:
-        st.info("Tidak ada data pada filter jenjang ini.")
-    else:
-      st.info("Belum ada data detail sekolah yang diinput.")
-  except Exception as e:
-    st.info(f"Terjadi kesalahan saat memuat data detail: {e}")
+                new_val = current_val + input_sud
