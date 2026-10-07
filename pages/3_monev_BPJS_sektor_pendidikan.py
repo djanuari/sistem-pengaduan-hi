@@ -54,7 +54,7 @@ with tab1:
     st.error(f"Gagal memuat rekapitulasi: {e}")
 
 with tab2:
-  st.subheader("Pencatatan Nama Sekolah per Jenjang")
+  st.subheader("Pencatatan & Manajemen Nama Sekolah per Jenjang")
 
   list_jenjang = [
       "PAUD",
@@ -69,81 +69,105 @@ with tab2:
       "Pendidikan Tinggi",
   ]
 
-  with st.form("form_detail_sekolah"):
-    pilih_jenjang = st.selectbox(
-        "Pilih Jenjang / Jenis Satuan Pendidikan", list_jenjang
-    )
-    nama_sekolah = st.text_input("Nama Sekolah / Lembaga")
-    alamat_sekolah = st.text_area("Alamat Sekolah")
-
-    col1, col2 = st.columns(2)
-    with col1:
-      input_sudah = st.number_input(
-          "Jumlah Sudah Terdaftar", min_value=0, value=0
+  with st.expander("➕ Tambah Data Sekolah Baru"):
+    with st.form("form_detail_sekolah"):
+      pilih_jenjang = st.selectbox(
+          "Pilih Jenjang / Jenis Satuan Pendidikan", list_jenjang
       )
-    with col2:
-      input_belum = st.number_input(
-          "Jumlah Belum Terdaftar", min_value=0, value=0
+      nama_sekolah = st.text_input("Nama Sekolah / Lembaga")
+      alamat_sekolah = st.text_area("Alamat Sekolah")
+
+      col1, col2 = st.columns(2)
+      with col1:
+        input_sudah = st.number_input(
+            "Jumlah Sudah Terdaftar", min_value=0, value=0
+        )
+      with col2:
+        input_belum = st.number_input(
+            "Jumlah Belum Terdaftar", min_value=0, value=0
+        )
+
+      keterangan_sekolah = st.text_input("Keterangan Tambahan")
+      submit_sekolah = st.form_submit_button(
+          "Simpan Data Sekolah", type="primary"
       )
 
-    keterangan_sekolah = st.text_input("Keterangan Tambahan")
+      if submit_sekolah:
+        if not nama_sekolah:
+          st.error("Nama sekolah wajib diisi!")
+        else:
+          try:
+            data_sekolah = {
+                "jenjang": pilih_jenjang,
+                "nama_sekolah": nama_sekolah,
+                "alamat": alamat_sekolah,
+                "jumlah_sudah": input_sudah,
+                "jumlah_belum": input_belum,
+                "keterangan": keterangan_sekolah,
+            }
+            supabase.table("tabel_detail_sekolah").insert(data_sekolah).execute()
 
-    submit_sekolah = st.form_submit_button("Simpan Data Sekolah", type="primary")
+            # Akumulasikan nilai "jumlah_sudah" ke tabel rekap utama
+            if input_sudah > 0:
+              res_rekap = (
+                  supabase.table("tabel_rekap_pendidikan")
+                  .select("sudah_terdaftar")
+                  .eq("jenjang", pilih_jenjang)
+                  .execute()
+              )
+              if res_rekap.data:
+                current_val = res_rekap.data[0].get("sudah_terdaftar", 0) or 0
+                new_val = current_val + input_sudah
 
-    if submit_sekolah:
-      if not nama_sekolah:
-        st.error("Nama sekolah wajib diisi!")
-      else:
-        try:
-          # Simpan data detail sekolah beserta jumlah sudah dan belum terdaftar
-          data_sekolah = {
-              "jenjang": pilih_jenjang,
-              "nama_sekolah": nama_sekolah,
-              "alamat": alamat_sekolah,
-              "jumlah_sudah": input_sudah,
-              "jumlah_belum": input_belum,
-              "keterangan": keterangan_sekolah,
-          }
-          supabase.table("tabel_detail_sekolah").insert(data_sekolah).execute()
+                supabase.table("tabel_rekap_pendidikan").update(
+                    {"sudah_terdaftar": new_val}
+                ).eq("jenjang", pilih_jenjang).execute()
 
-          # Akumulasikan nilai "jumlah_sudah" ke tabel rekap utama
-          if input_sudah > 0:
-            res_rekap = (
-                supabase.table("tabel_rekap_pendidikan")
-                .select("sudah_terdaftar")
-                .eq("jenjang", pilih_jenjang)
-                .execute()
+            st.success(
+                f"Data sekolah **{nama_sekolah}** berhasil disimpan dan rekap"
+                " diperbarui!"
             )
-            if res_rekap.data:
-              current_val = res_rekap.data[0].get("sudah_terdaftar", 0) or 0
-              new_val = current_val + input_sudah
-
-              supabase.table("tabel_rekap_pendidikan").update(
-                  {"sudah_terdaftar": new_val}
-              ).eq("jenjang", pilih_jenjang).execute()
-
-          st.success(
-              f"Data sekolah **{nama_sekolah}** berhasil disimpan dan rekap"
-              " diperbarui!"
-          )
-          st.rerun()
-        except Exception as e:
-          st.error(f"Gagal menyimpan data sekolah: {e}")
+            st.rerun()
+          except Exception as e:
+            st.error(f"Gagal menyimpan data sekolah: {e}")
 
   st.markdown("---")
-  st.subheader("Daftar Sekolah yang Telah Didata")
+  st.subheader("📋 Daftar Sekolah & Fitur Hapus Data")
+
   try:
     res_detail = supabase.table("tabel_detail_sekolah").select("*").execute()
     df_detail = pd.DataFrame(res_detail.data)
+
     if not df_detail.empty:
       pilih_filter = st.selectbox(
           "Filter Berdasarkan Jenjang:", ["Semua Jenjang"] + list_jenjang
       )
       if pilih_filter != "Semua Jenjang":
-        df_detail = df_detail[df_detail["jenjang"] == pilih_filter]
+        df_detail_filtered = df_detail[df_detail["jenjang"] == pilih_filter]
+      else:
+        df_detail_filtered = df_detail
 
-      st.dataframe(df_detail, use_container_width=True)
-    else:
-      st.info("Belum ada data detail sekolah yang diinput.")
-  except Exception as e:
-    st.info("Tabel detail sekolah belum siap.")
+      st.dataframe(df_detail_filtered, use_container_width=True)
+
+      st.markdown("### 🗑️ Hapus Data Sekolah")
+      # Buat pilihan berdasarkan nama sekolah dan ID-nya
+      opsi_sekolah = {
+          f"{row['nama_sekolah']} ({row['jenjang']}) - ID: {row['id']}": row[
+              "id"
+          ]
+          for _, row in df_detail_filtered.iterrows()
+      }
+
+      if opsi_sekolah:
+        pilih_hapus = st.selectbox(
+            "Pilih sekolah yang ingin dihapus:", list(opsi_sekolah.keys())
+        )
+
+        if st.button("🗑️ Hapus Data Terpilih", type="secondary"):
+          target_id = opsi_sekolah[pilih_hapus]
+
+          # Ambil data sekolah yang akan dihapus untuk menyesuaikan rekap
+          data_hapus = (
+              supabase.table("tabel_detail_sekolah")
+              .select("*")
+              .eq("id",
