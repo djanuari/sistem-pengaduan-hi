@@ -38,11 +38,9 @@ with tab1:
           "sudah_terdaftar" in df_rekap.columns
           and "jumlah_ptk" in df_rekap.columns
       ):
-        # Hitung Belum Terdaftar = Total PTK - Sudah Terdaftar
         df_rekap["Belum Terdaftar"] = (
             df_rekap["jumlah_ptk"] - df_rekap["sudah_terdaftar"]
         )
-        # Hitung Persentase
         df_rekap["Persentase"] = (
             df_rekap["sudah_terdaftar"]
             / df_rekap["jumlah_ptk"].replace(0, 1)
@@ -77,13 +75,17 @@ with tab2:
     )
     nama_sekolah = st.text_input("Nama Sekolah / Lembaga")
     alamat_sekolah = st.text_area("Alamat Sekolah")
-    status_pendaftaran = st.selectbox(
-        "Status Kepesertaan", ["Sudah Terdaftar", "Belum Terdaftar"]
-    )
-    # Kolom isian jumlah PTK yang mendaftar/terdaftar
-    jumlah_ptk_sekolah = st.number_input(
-        "Jumlah PTK Terdaftar di Sekolah Ini", min_value=0, value=0
-    )
+
+    col1, col2 = st.columns(2)
+    with col1:
+      input_sudah = st.number_input(
+          "Jumlah Sudah Terdaftar", min_value=0, value=0
+      )
+    with col2:
+      input_belum = st.number_input(
+          "Jumlah Belum Terdaftar", min_value=0, value=0
+      )
+
     keterangan_sekolah = st.text_input("Keterangan Tambahan")
 
     submit_sekolah = st.form_submit_button("Simpan Data Sekolah", type="primary")
@@ -93,19 +95,19 @@ with tab2:
         st.error("Nama sekolah wajib diisi!")
       else:
         try:
-          # Simpan data detail sekolah beserta jumlah PTK-nya
+          # Simpan data detail sekolah beserta jumlah sudah dan belum terdaftar
           data_sekolah = {
               "jenjang": pilih_jenjang,
               "nama_sekolah": nama_sekolah,
               "alamat": alamat_sekolah,
-              "status_terdaftar": status_pendaftaran,
-              "jumlah_ptk": jumlah_ptk_sekolah,
+              "jumlah_sudah": input_sudah,
+              "jumlah_belum": input_belum,
               "keterangan": keterangan_sekolah,
           }
           supabase.table("tabel_detail_sekolah").insert(data_sekolah).execute()
 
-          # Jika statusnya "Sudah Terdaftar", akumulasikan jumlah PTK ke tabel rekap utama
-          if status_pendaftaran == "Sudah Terdaftar" and jumlah_ptk_sekolah > 0:
+          # Akumulasikan nilai "jumlah_sudah" ke tabel rekap utama
+          if input_sudah > 0:
             res_rekap = (
                 supabase.table("tabel_rekap_pendidikan")
                 .select("sudah_terdaftar")
@@ -114,15 +116,15 @@ with tab2:
             )
             if res_rekap.data:
               current_val = res_rekap.data[0].get("sudah_terdaftar", 0) or 0
-              new_val = current_val + jumlah_ptk_sekolah
+              new_val = current_val + input_sudah
 
               supabase.table("tabel_rekap_pendidikan").update(
                   {"sudah_terdaftar": new_val}
               ).eq("jenjang", pilih_jenjang).execute()
 
           st.success(
-              f"Data sekolah **{nama_sekolah}** berhasil disimpan dan jumlah"
-              " pendaftar diperbarui!"
+              f"Data sekolah **{nama_sekolah}** berhasil disimpan dan rekap"
+              " diperbarui!"
           )
           st.rerun()
         except Exception as e:
