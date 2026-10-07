@@ -56,9 +56,7 @@ with tab1:
         ) * 100
         df_rekap["Persentase"] = df_rekap["Persentase"].round(2).astype(str) + "%"
 
-      # Hilangkan kolom created_at jika ada
       df_rekap = df_rekap.drop(columns=["created_at"], errors="ignore")
-
       st.dataframe(df_rekap, use_container_width=True, hide_index=True)
 
       st.markdown("---")
@@ -132,93 +130,4 @@ with tab1:
                   ("FONTSIZE", (0, 0), (-1, -1), 8),
                   ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
                   ("BACKGROUND", (0, 1), (-1, -1), (0.95, 0.95, 0.95)),
-                  ("GRID", (0, 0), (-1, -1), 0.5, (0.5, 0.5, 0.5)),
-              ])
-          )
-          elements.append(t)
-          doc.build(elements)
-          buffer.seek(0)
-          return buffer.getvalue()
-
-        pdf_data = generate_pdf(df_rekap)
-        st.download_button(
-            label="📑 Unduh PDF",
-            data=pdf_data,
-            file_name="rekap_monitoring_bpjs.pdf",
-            mime="application/pdf",
-        )
-
-    else:
-      st.info("Belum ada data rekap.")
-  except Exception as e:
-    st.error(f"Gagal memuat rekapitulasi: {e}")
-
-with tab2:
-  st.subheader("Pencatatan & Manajemen Nama Sekolah per Jenjang")
-
-  list_jenjang = [
-      "PAUD",
-      "Kelompok Bermain (KB)",
-      "Taman Kanak-Kanak (TK)",
-      "Sekolah Dasar (SD)",
-      "Sekolah Menengah Pertama (SMP)",
-      "Sekolah Menengah Atas (SMA)",
-      "Sekolah Menengah Kejuruan (SMK)",
-      "Sekolah Luar Biasa (SLB)",
-      "Lembaga Kursus",
-      "Pendidikan Tinggi",
-  ]
-
-  with st.expander("➕ Tambah Data Sekolah Baru"):
-    with st.form("form_detail_sekolah"):
-      pilih_jenjang = st.selectbox(
-          "Pilih Jenjang / Jenis Satuan Pendidikan", list_jenjang
-      )
-      nama_sekolah = st.text_input("Nama Sekolah / Lembaga")
-      alamat_sekolah = st.text_area("Alamat Sekolah")
-
-      col_tot, col1, col2 = st.columns(3)
-      with col_tot:
-        input_total_ptk = st.number_input(
-            "Jumlah Total PTK", min_value=0, value=0
-        )
-      with col1:
-        input_sudah = st.number_input(
-            "Jumlah Sudah Terdaftar", min_value=0, value=0
-        )
-      with col2:
-        input_belum = st.number_input(
-            "Jumlah Belum Terdaftar", min_value=0, value=0
-        )
-
-      keterangan_sekolah = st.text_input("Keterangan Tambahan")
-      submit_sekolah = st.form_submit_button(
-          "Simpan Data Sekolah", type="primary"
-      )
-
-      if submit_sekolah:
-        if not nama_sekolah:
-          st.error("Nama sekolah wajib diisi!")
-        else:
-          try:
-            data_sekolah = {
-                "jenjang": pilih_jenjang,
-                "nama_sekolah": nama_sekolah,
-                "alamat": alamat_sekolah,
-                "jumlah_total_ptk": input_total_ptk,
-                "jumlah_sudah": input_sudah,
-                "jumlah_belum": input_belum,
-                "keterangan": keterangan_sekolah,
-            }
-            supabase.table("tabel_detail_sekolah").insert(data_sekolah).execute()
-
-            if input_sudah > 0:
-              res_rekap = (
-                  supabase.table("tabel_rekap_pendidikan")
-                  .select("sudah_terdaftar")
-                  .eq("jenjang", pilih_jenjang)
-                  .execute()
-              )
-              if res_rekap.data:
-                current_val = res_rekap.data[0].get("sudah_terdaftar", 0) or 0
-                new_val = current_val + input_sud
+                  ("GRID", (0, 0), (-1, -1), 0.5, (0.5, 0.5,
