@@ -77,7 +77,12 @@ with tab2:
       nama_sekolah = st.text_input("Nama Sekolah / Lembaga")
       alamat_sekolah = st.text_area("Alamat Sekolah")
 
-      col1, col2 = st.columns(2)
+      # Kolom Total PTK & Rincian Kepesertaan
+      col_tot, col1, col2 = st.columns(3)
+      with col_tot:
+        input_total_ptk = st.number_input(
+            "Jumlah Total PTK", min_value=0, value=0
+        )
       with col1:
         input_sudah = st.number_input(
             "Jumlah Sudah Terdaftar", min_value=0, value=0
@@ -101,6 +106,7 @@ with tab2:
                 "jenjang": pilih_jenjang,
                 "nama_sekolah": nama_sekolah,
                 "alamat": alamat_sekolah,
+                "jumlah_total_ptk": input_total_ptk,
                 "jumlah_sudah": input_sudah,
                 "jumlah_belum": input_belum,
                 "keterangan": keterangan_sekolah,
