@@ -107,7 +107,6 @@ with tab2:
             }
             supabase.table("tabel_detail_sekolah").insert(data_sekolah).execute()
 
-            # Akumulasikan nilai "jumlah_sudah" ke tabel rekap utama
             if input_sudah > 0:
               res_rekap = (
                   supabase.table("tabel_rekap_pendidikan")
@@ -150,7 +149,6 @@ with tab2:
       st.dataframe(df_detail_filtered, use_container_width=True)
 
       st.markdown("### 🗑️ Hapus Data Sekolah")
-      # Buat pilihan berdasarkan nama sekolah dan ID-nya
       opsi_sekolah = {
           f"{row['nama_sekolah']} ({row['jenjang']}) - ID: {row['id']}": row[
               "id"
@@ -166,8 +164,44 @@ with tab2:
         if st.button("🗑️ Hapus Data Terpilih", type="secondary"):
           target_id = opsi_sekolah[pilih_hapus]
 
-          # Ambil data sekolah yang akan dihapus untuk menyesuaikan rekap
           data_hapus = (
               supabase.table("tabel_detail_sekolah")
               .select("*")
-              .eq("id",
+              .eq("id", target_id)
+              .execute()
+          )
+
+          if data_hapus.data:
+            item = data_hapus.data[0]
+            j_jenjang = item.get("jenjang")
+            j_sudah = item.get("jumlah_sudah", 0) or 0
+
+            supabase.table("tabel_detail_sekolah").delete().eq(
+                "id", target_id
+            ).execute()
+
+            if j_sudah > 0 and j_jenjang:
+              res_rekap = (
+                  supabase.table("tabel_rekap_pendidikan")
+                  .select("sudah_terdaftar")
+                  .eq("jenjang", j_jenjang)
+                  .execute()
+              )
+              if res_rekap.data:
+                current_val = res_rekap.data[0].get("sudah_terdaftar", 0) or 0
+                new_val = max(0, current_val - j_sudah)
+
+                supabase.table("tabel_rekap_pendidikan").update(
+                    {"sudah_terdaftar": new_val}
+                ).eq("jenjang", j_jenjang).execute()
+
+            st.success(
+                "Data sekolah berhasil dihapus dan rekapitulasi diperbarui!"
+            )
+            st.rerun()
+      else:
+        st.info("Tidak ada data pada filter jenjang ini.")
+    else:
+      st.info("Belum ada data detail sekolah yang diinput.")
+  except Exception as e:
+    st.info(f"Terjadi kesalahan saat memuat data detail: {e}")
