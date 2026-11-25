@@ -66,7 +66,6 @@ def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
   )
   pdf.ln(4)
 
-  # Total lebar = 277 mm (pas untuk kertas A4 Landscape margin 10mm)
   col_widths = [
       7,
       26,
@@ -227,8 +226,11 @@ with tab1:
     if filter_status != "Semua":
       df_tampil = df_tampil[df_tampil["status"] == filter_status]
 
+    # Reset index dari 0 lalu buat kolom No dimulai dari 1
     df_tampil = df_tampil.reset_index(drop=True)
-    df_tampil.insert(0, "No", range(1, len(df_tampil) + 1))
+    if "No" in df_tampil.columns:
+      df_tampil = df_tampil.drop(columns=["No"])
+    df_tampil.insert(0, "No", list(range(1, len(df_tampil) + 1)))
 
     kolom_mapping = {
         "No": "No",
@@ -252,6 +254,7 @@ with tab1:
     df_final = df_tampil[list(kolom_mapping.keys())].rename(
         columns=kolom_mapping
     )
+    df_final.index = range(1, len(df_final) + 1)
 
     st.dataframe(df_final, use_container_width=True, hide_index=True)
 
@@ -418,7 +421,12 @@ with tab3:
         st.warning("File Excel yang diunggah kosong.")
       else:
         st.write(f"Pratinjau data ({len(df_up)} baris ditemukan):")
-        st.dataframe(df_up.head(10), use_container_width=True)
+        df_preview = df_up.head(10).reset_index(drop=True).copy()
+        if "No" in df_preview.columns:
+          df_preview = df_preview.drop(columns=["No"])
+        df_preview.insert(0, "No", list(range(1, len(df_preview) + 1)))
+        df_preview.index = range(1, len(df_preview) + 1)
+        st.dataframe(df_preview, use_container_width=True, hide_index=True)
 
         kolom_excel = list(df_up.columns)
         opsi_opsional = ["(Tidak ada / Kosongkan)"] + kolom_excel
@@ -567,3 +575,133 @@ with tab4:
       u_nib = ec2.text_input("NIB", value=safe_str(row_edit["nib"]))
 
       ec3, ec4 = st.columns(2)
+      u_telp = ec3.text_input(
+          "Nomor Telepon", value=safe_str(row_edit.get("no_telp", ""))
+      )
+      u_email = ec4.text_input(
+          "Email Perusahaan", value=safe_str(row_edit.get("email", ""))
+      )
+
+      ec5, ec6 = st.columns([2, 1])
+      u_alamat = ec5.text_area("Alamat", value=safe_str(row_edit["alamat"]))
+      u_pekerja = ec6.number_input(
+          "Jumlah Pekerja",
+          min_value=0,
+          step=1,
+          value=int(row_edit["jumlah_pekerja"] or 0),
+      )
+
+      st.markdown("**Kelengkapan Perangkat Hubungan Industrial**")
+      ek1, ek2, ek3, ek4, ek5 = st.columns(5)
+      u_pp = ek1.selectbox(
+          "PP",
+          opsi_ada,
+          index=opsi_ada.index(row_edit["pp"])
+          if row_edit["pp"] in opsi_ada
+          else 0,
+      )
+      u_pkb = ek2.selectbox(
+          "PKB",
+          opsi_ada,
+          index=opsi_ada.index(row_edit["pkb"])
+          if row_edit["pkb"] in opsi_ada
+          else 0,
+      )
+      u_lks = ek3.selectbox(
+          "LKS Bipartit",
+          opsi_ada,
+          index=opsi_ada.index(row_edit["lks_bipartit"])
+          if row_edit["lks_bipartit"] in opsi_ada
+          else 0,
+      )
+      u_sp = ek4.selectbox(
+          "SP/SB",
+          opsi_ada,
+          index=opsi_ada.index(row_edit["sp_sb"])
+          if row_edit["sp_sb"] in opsi_ada
+          else 0,
+      )
+      u_bpjs = ek5.selectbox(
+          "BPJS",
+          opsi_bpjs,
+          index=opsi_bpjs.index(row_edit["bpjs"])
+          if row_edit["bpjs"] in opsi_bpjs
+          else 0,
+      )
+
+      st.markdown("**Catatan Kasus & Pembinaan**")
+      ep1, ep2 = st.columns(2)
+      u_perselisihan = ep1.text_area(
+          "Perselisihan", value=safe_str(row_edit["perselisihan"])
+      )
+      u_phk = ep2.text_area("PHK", value=safe_str(row_edit["phk"]))
+
+      ep3, ep4 = st.columns([2, 1])
+      u_pembinaan = ep3.text_area(
+          "Pembinaan", value=safe_str(row_edit["pembinaan"])
+      )
+      u_status = ep4.selectbox(
+          "Status",
+          opsi_status,
+          index=opsi_status.index(row_edit["status"])
+          if row_edit["status"] in opsi_status
+          else 0,
+      )
+
+      if st.form_submit_button("Simpan Perubahan", type="primary"):
+        if not u_nama.strip():
+          st.error("Nama Perusahaan tidak boleh kosong!")
+        else:
+          try:
+            data_upd = {
+                "nama_perusahaan": u_nama.strip(),
+                "nib": u_nib.strip(),
+                "alamat": u_alamat.strip(),
+                "no_telp": u_telp.strip(),
+                "email": u_email.strip(),
+                "jumlah_pekerja": int(u_pekerja),
+                "pp": u_pp,
+                "pkb": u_pkb,
+                "lks_bipartit": u_lks,
+                "sp_sb": u_sp,
+                "bpjs": u_bpjs,
+                "perselisihan": u_perselisihan.strip(),
+                "phk": u_phk.strip(),
+                "pembinaan": u_pembinaan.strip(),
+                "status": u_status,
+            }
+            supabase.table("tabel_perusahaan").update(data_upd).eq(
+                "id", id_pilih
+            ).execute()
+            st.success(f"Data **{u_nama}** berhasil diperbarui!")
+            st.rerun()
+          except Exception as e:
+            st.error(f"Gagal memperbarui data: {e}")
+  else:
+    st.info("Belum ada data perusahaan untuk diedit.")
+
+# ==========================================
+# TAB 5: HAPUS DATA PERUSAHAAN
+# ==========================================
+with tab5:
+  if not df_raw.empty:
+    hapus_dict = {
+        f"{row['nama_perusahaan']} (NIB: {row['nib'] or '-'})": row["id"]
+        for _, row in df_raw.iterrows()
+    }
+    label_hapus = st.selectbox(
+        "Pilih Perusahaan untuk DIHAPUS:",
+        list(hapus_dict.keys()),
+        key="hapus_perusahaan_unik",
+    )
+    id_hapus = hapus_dict[label_hapus]
+
+    if st.button("🗑️ Hapus Permanen Data Perusahaan", type="secondary"):
+      try:
+        supabase.table("tabel_perusahaan").delete().eq("id", id_hapus).execute()
+        st.success(f"Data **{label_hapus}** berhasil dihapus!")
+        st.rerun()
+      except Exception as e:
+        st.error(f"Gagal menghapus data: {e}")
+  else:
+    st.info("Tidak ada data untuk dihapus.")
