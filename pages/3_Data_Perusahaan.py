@@ -38,11 +38,24 @@ def safe_str(val):
   return str(val) if val is not None and str(val) != "None" else ""
 
 
-# Konversi nilai BPJS lama (jika ada di database) agar cocok dengan opsi 'Sudah' / 'Belum'
+# Konversi berbagai variasi tulisan BPJS (dari database lama maupun file Excel) menjadi 'Sudah' atau 'Belum'
 def normalisasi_bpjs(val):
-  s = safe_str(val).strip()
-  if s in ["Sudah", "Terdaftar Lengkap (Kesehatan & TK)", "Sebagian"]:
-    return "Sudah"
+  s = safe_str(val).strip().lower()
+  if any(
+      kata in s
+      for kata in [
+          "sudah",
+          "terdaftar",
+          "lengkap",
+          "sebagian",
+          "ya",
+          "ada",
+          "aktif",
+          "ikut",
+      ]
+  ) or s in ["1", "true", "v", "✓"]:
+    if "belum" not in s and "tidak" not in s:
+      return "Sudah"
   return "Belum"
 
 
@@ -654,9 +667,10 @@ with tab3:
   st.subheader("Impor Daftar Perusahaan dari File Excel")
   st.info(
       "Unggah file Excel (`.xlsx` / `.xls`) Anda, lalu pasangkan kolom yang"
-      " sesuai untuk **Nama Perusahaan**, **Alamat**, **Nomor Telepon**, dan"
-      " **Email**. Jika salah satu kolom tidak ada di file Excel, pilih"
-      " **'(Tidak ada / Kosongkan)'**."
+      " sesuai untuk **Nama Perusahaan**, **Alamat**, **Nomor Telepon**,"
+      " **Email**, dan **BPJS**. Jika kolom BPJS berisi keterangan seperti"
+      " *'Sudah'*, *'Terdaftar'*, atau *'Aktif'*, sistem otomatis mencatatnya"
+      " sebagai **Sudah** di rekapitulasi."
   )
 
   df_template = pd.DataFrame({
@@ -670,6 +684,7 @@ with tab3:
       ],
       "No. Telepon": ["081234567890", "082345678901"],
       "Email": ["hrd@contohsejahtera.co.id", "admin@majubersama.com"],
+      "BPJS": ["Sudah", "Belum"],
   })
   buf_tpl = io.BytesIO()
   with pd.ExcelWriter(buf_tpl, engine="openpyxl") as writer:
@@ -718,6 +733,9 @@ with tab3:
             opsi_opsional, ["telp", "telepon", "hp", "kontak", "wa"], 0
         )
         idx_email = cari_indeks_awal(opsi_opsional, ["email", "surel"], 0)
+        idx_bpjs = cari_indeks_awal(
+            opsi_opsional, ["bpjs", "jamsostek", "jaminan"], 0
+        )
 
         st.markdown("**Pasangkan Kolom Excel ke Database:**")
         m1, m2 = st.columns(2)
@@ -732,7 +750,7 @@ with tab3:
             index=idx_alamat,
         )
 
-        m3, m4 = st.columns(2)
+        m3, m4, m5 = st.columns(3)
         kolom_telp = m3.selectbox(
             "Kolom Nomor Telepon:",
             opsi_opsional,
@@ -742,6 +760,11 @@ with tab3:
             "Kolom Email:",
             opsi_opsional,
             index=idx_email,
+        )
+        kolom_bpjs = m5.selectbox(
+            "Kolom Status BPJS (Sudah / Belum):",
+            opsi_opsional,
+            index=idx_bpjs,
         )
 
         lewati_duplikat = st.checkbox(
@@ -783,6 +806,13 @@ with tab3:
 
             existing_names.add(nama_val.lower())
 
+            raw_bpjs = ambil_nilai_terpilih(r, kolom_bpjs)
+            status_bpjs_final = (
+                normalisasi_bpjs(raw_bpjs)
+                if kolom_bpjs != "(Tidak ada / Kosongkan)"
+                else "Belum"
+            )
+
             records_to_insert.append({
                 "nama_perusahaan": nama_val,
                 "nib": "",
@@ -794,7 +824,7 @@ with tab3:
                 "pkb": "Tidak Ada",
                 "lks_bipartit": "Tidak Ada",
                 "sp_sb": "Tidak Ada",
-                "bpjs": "Belum",
+                "bpjs": status_bpjs_final,
                 "perselisihan": "",
                 "phk": "",
                 "pembinaan": "",
