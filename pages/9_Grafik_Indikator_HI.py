@@ -25,7 +25,7 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
-st.title("📊 Dashboard Capaian 5 Indikator Hubungan Industrial")
+st.title("📊 Dashboard Capaian Indikator Hubungan Industrial")
 st.markdown("---")
 
 
@@ -57,7 +57,6 @@ def load_all_data():
     st.error(f"Gagal memuat tabel_perusahaan: {e}")
 
   try:
-    # Tanpa order_col='id' agar aman dengan struktur kolom tabel_pengaduan
     df_pengaduan = fetch_all_rows("tabel_pengaduan", order_col=None)
   except Exception as e:
     st.error(f"Gagal memuat tabel_pengaduan: {e}")
@@ -79,10 +78,10 @@ with st.expander("🔍 Filter Data Tampilan", expanded=True):
         df_perusahaan["status"].dropna().unique().tolist()
     )
   pilih_status_p = f_col1.selectbox(
-      "Filter Status Perusahaan (Indikator 1, 2, 3, 5):", status_perusahaan_opsi
+      "Filter Status Perusahaan (Indikator Perusahaan):",
+      status_perusahaan_opsi,
   )
 
-  # Daftar pilihan tahun dari 2020 sampai 2035
   tahun_opsi = ["Semua Tahun"] + [str(t) for t in range(2020, 2036)]
   if not df_pengaduan.empty and "tanggal_masuk" in df_pengaduan.columns:
     df_pengaduan["tahun"] = pd.to_datetime(
@@ -90,7 +89,7 @@ with st.expander("🔍 Filter Data Tampilan", expanded=True):
     ).dt.year
 
   pilih_tahun = f_col2.selectbox(
-      "Filter Tahun Pengaduan (Indikator 4):", tahun_opsi
+      "Filter Tahun Pengaduan (Indikator Perselisihan):", tahun_opsi
   )
 
 df_p_filtered = df_perusahaan.copy()
@@ -109,7 +108,7 @@ if not df_k_filtered.empty and pilih_tahun != "Semua Tahun":
     df_k_filtered = df_k_filtered.iloc[0:0]
 
 # ==========================================
-# HITUNG 5 INDIKATOR UTAMA
+# HITUNG 6 INDIKATOR UTAMA (TERMASUK BPJS)
 # ==========================================
 total_perusahaan = len(df_p_filtered)
 
@@ -128,9 +127,25 @@ if total_perusahaan > 0:
   )
   jml_pembinaan = int(((pembinaan_bersih != "") & (pembinaan_bersih != "-")).sum())
   persen_pembinaan = (jml_pembinaan / total_perusahaan) * 100
+
+  # Indikator BPJS
+  if "bpjs" in df_p_filtered.columns:
+    bpjs_series = df_p_filtered["bpjs"].fillna("").astype(str).str.strip()
+    jml_bpjs_lengkap = int(
+        (bpjs_series == "Terdaftar Lengkap (Kesehatan & TK)").sum()
+    )
+    jml_bpjs_sebagian = int((bpjs_series == "Sebagian").sum())
+    jml_bpjs_terdaftar = jml_bpjs_lengkap + jml_bpjs_sebagian
+    jml_bpjs_belum = max(total_perusahaan - jml_bpjs_terdaftar, 0)
+  else:
+    jml_bpjs_lengkap = jml_bpjs_sebagian = jml_bpjs_terdaftar = 0
+    jml_bpjs_belum = total_perusahaan
+
+  persen_bpjs = (jml_bpjs_terdaftar / total_perusahaan) * 100
 else:
   jml_pp = jml_pkb = jml_lks = jml_pembinaan = 0
-  persen_pp = persen_pkb = persen_lks = persen_pembinaan = 0.0
+  jml_bpjs_lengkap = jml_bpjs_sebagian = jml_bpjs_terdaftar = jml_bpjs_belum = 0
+  persen_pp = persen_pkb = persen_lks = persen_pembinaan = persen_bpjs = 0.0
 
 total_perselisihan = len(df_k_filtered)
 if total_perselisihan > 0 and "status" in df_k_filtered.columns:
@@ -141,48 +156,54 @@ else:
   persen_selesai = 0.0
 
 # ==========================================
-# RINGKASAN KARTU KPI (5 INDIKATOR)
+# RINGKASAN KARTU KPI (6 INDIKATOR)
 # ==========================================
 st.subheader("Ringkasan Capaian Indikator")
-m1, m2, m3, m4, m5 = st.columns(5)
+m1, m2, m3, m4, m5, m6 = st.columns(6)
 
 m1.metric(
-    label="Indikator 1: Memiliki PP",
+    label="1. Memiliki PP",
     value=f"{persen_pp:.1f}%",
-    delta=f"{jml_pp:,} dari {total_perusahaan:,} perusahaan",
+    delta=f"{jml_pp:,} / {total_perusahaan:,}",
     delta_color="off",
 )
 m2.metric(
-    label="Indikator 2: Memiliki PKB",
+    label="2. Memiliki PKB",
     value=f"{persen_pkb:.1f}%",
-    delta=f"{jml_pkb:,} dari {total_perusahaan:,} perusahaan",
+    delta=f"{jml_pkb:,} / {total_perusahaan:,}",
     delta_color="off",
 )
 m3.metric(
-    label="Indikator 3: LKS Bipartit",
+    label="3. LKS Bipartit",
     value=f"{persen_lks:.1f}%",
-    delta=f"{jml_lks:,} dari {total_perusahaan:,} perusahaan",
+    delta=f"{jml_lks:,} / {total_perusahaan:,}",
     delta_color="off",
 )
 m4.metric(
-    label="Indikator 4: Kasus Selesai",
+    label="4. Kasus Selesai",
     value=f"{persen_selesai:.1f}%",
-    delta=f"{jml_selesai:,} dari {total_perselisihan:,} kasus",
+    delta=f"{jml_selesai:,} / {total_perselisihan:,}",
     delta_color="off",
 )
 m5.metric(
-    label="Indikator 5: Pembinaan HI",
+    label="5. Pembinaan HI",
     value=f"{persen_pembinaan:.1f}%",
-    delta=f"{jml_pembinaan:,} dari {total_perusahaan:,} perusahaan",
+    delta=f"{jml_pembinaan:,} / {total_perusahaan:,}",
+    delta_color="off",
+)
+m6.metric(
+    label="6. Terdaftar BPJS",
+    value=f"{persen_bpjs:.1f}%",
+    delta=f"{jml_bpjs_terdaftar:,} / {total_perusahaan:,}",
     delta_color="off",
 )
 
 st.markdown("---")
 
 # ==========================================
-# GRAFIK PERBANDINGAN 5 INDIKATOR (BAR CHART)
+# GRAFIK PERBANDINGAN 6 INDIKATOR (BAR CHART)
 # ==========================================
-st.subheader("Grafik Perbandingan Persentase 5 Indikator")
+st.subheader("Grafik Perbandingan Persentase Indikator")
 
 df_ringkasan = pd.DataFrame({
     "Indikator": [
@@ -191,6 +212,7 @@ df_ringkasan = pd.DataFrame({
         "3. Memiliki LKS Bipartit",
         "4. Perselisihan Selesai",
         "5. Mendapat Pembinaan HI",
+        "6. Terdaftar BPJS",
     ],
     "Persentase (%)": [
         round(persen_pp, 2),
@@ -198,6 +220,7 @@ df_ringkasan = pd.DataFrame({
         round(persen_lks, 2),
         round(persen_selesai, 2),
         round(persen_pembinaan, 2),
+        round(persen_bpjs, 2),
     ],
     "Keterangan": [
         f"{jml_pp:,} / {total_perusahaan:,} Perusahaan",
@@ -205,6 +228,10 @@ df_ringkasan = pd.DataFrame({
         f"{jml_lks:,} / {total_perusahaan:,} Perusahaan",
         f"{jml_selesai:,} / {total_perselisihan:,} Kasus",
         f"{jml_pembinaan:,} / {total_perusahaan:,} Perusahaan",
+        (
+            f"{jml_bpjs_terdaftar:,} / {total_perusahaan:,} Perusahaan"
+            f" (Lengkap: {jml_bpjs_lengkap:,}, Sebagian: {jml_bpjs_sebagian:,})"
+        ),
     ],
 })
 
@@ -221,6 +248,7 @@ fig_bar = px.bar(
         "#ff7f0e",
         "#9467bd",
         "#17becf",
+        "#e377c2",
     ],
 )
 fig_bar.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
@@ -240,8 +268,8 @@ st.markdown("---")
 st.subheader("Rincian Proporsi Masing-Masing Indikator")
 
 
-def buat_donut(judul, label_ya, jml_ya, label_tidak, jml_tidak, warna_ya):
-  if (jml_ya + jml_tidak) == 0:
+def buat_donut(judul, names_list, values_list, color_map):
+  if sum(values_list) == 0:
     fig = go.Figure()
     fig.add_annotation(
         text="Belum ada data", x=0.5, y=0.5, showarrow=False, font_size=14
@@ -255,34 +283,33 @@ def buat_donut(judul, label_ya, jml_ya, label_tidak, jml_tidak, warna_ya):
     return fig
 
   fig = px.pie(
-      names=[label_ya, label_tidak],
-      values=[jml_ya, jml_tidak],
+      names=names_list,
+      values=values_list,
       hole=0.55,
-      color=[label_ya, label_tidak],
-      color_discrete_map={label_ya: warna_ya, label_tidak: "#e0e0e0"},
+      color=names_list,
+      color_discrete_map=color_map,
   )
   fig.update_traces(textinfo="percent+value", textposition="inside")
   fig.update_layout(
       title=dict(text=judul, font=dict(size=14)),
       legend=dict(
-          orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5
+          orientation="h", yanchor="bottom", y=-0.28, xanchor="center", x=0.5
       ),
-      margin=dict(t=45, b=40, l=10, r=10),
-      height=320,
+      margin=dict(t=45, b=45, l=10, r=10),
+      height=330,
   )
   return fig
 
 
+# Baris 1: Indikator 1, 2, 3
 c1, c2, c3 = st.columns(3)
 with c1:
   st.plotly_chart(
       buat_donut(
           "Indikator 1: Peraturan Perusahaan (PP)",
-          "Memiliki PP",
-          jml_pp,
-          "Belum / Proses",
-          max(total_perusahaan - jml_pp, 0),
-          "#1f77b4",
+          ["Memiliki PP", "Belum / Proses"],
+          [jml_pp, max(total_perusahaan - jml_pp, 0)],
+          {"Memiliki PP": "#1f77b4", "Belum / Proses": "#e0e0e0"},
       ),
       use_container_width=True,
   )
@@ -290,11 +317,9 @@ with c2:
   st.plotly_chart(
       buat_donut(
           "Indikator 2: Perjanjian Kerja Bersama (PKB)",
-          "Memiliki PKB",
-          jml_pkb,
-          "Belum / Proses",
-          max(total_perusahaan - jml_pkb, 0),
-          "#2ca02c",
+          ["Memiliki PKB", "Belum / Proses"],
+          [jml_pkb, max(total_perusahaan - jml_pkb, 0)],
+          {"Memiliki PKB": "#2ca02c", "Belum / Proses": "#e0e0e0"},
       ),
       use_container_width=True,
   )
@@ -302,25 +327,22 @@ with c3:
   st.plotly_chart(
       buat_donut(
           "Indikator 3: LKS Bipartit",
-          "Memiliki LKS Bipartit",
-          jml_lks,
-          "Belum / Proses",
-          max(total_perusahaan - jml_lks, 0),
-          "#ff7f0e",
+          ["Memiliki LKS Bipartit", "Belum / Proses"],
+          [jml_lks, max(total_perusahaan - jml_lks, 0)],
+          {"Memiliki LKS Bipartit": "#ff7f0e", "Belum / Proses": "#e0e0e0"},
       ),
       use_container_width=True,
   )
 
-c4, c5 = st.columns(2)
+# Baris 2: Indikator 4, 5, 6 (BPJS)
+c4, c5, c6 = st.columns(3)
 with c4:
   st.plotly_chart(
       buat_donut(
           "Indikator 4: Penyelesaian Perselisihan HI",
-          "Selesai",
-          jml_selesai,
-          "Dalam Proses / Belum",
-          max(total_perselisihan - jml_selesai, 0),
-          "#9467bd",
+          ["Selesai", "Dalam Proses / Belum"],
+          [jml_selesai, max(total_perselisihan - jml_selesai, 0)],
+          {"Selesai": "#9467bd", "Dalam Proses / Belum": "#e0e0e0"},
       ),
       use_container_width=True,
   )
@@ -328,11 +350,23 @@ with c5:
   st.plotly_chart(
       buat_donut(
           "Indikator 5: Pembinaan Hubungan Industrial",
-          "Sudah Dibina",
-          jml_pembinaan,
-          "Belum Dibina",
-          max(total_perusahaan - jml_pembinaan, 0),
-          "#17becf",
+          ["Sudah Dibina", "Belum Dibina"],
+          [jml_pembinaan, max(total_perusahaan - jml_pembinaan, 0)],
+          {"Sudah Dibina": "#17becf", "Belum Dibina": "#e0e0e0"},
+      ),
+      use_container_width=True,
+  )
+with c6:
+  st.plotly_chart(
+      buat_donut(
+          "Indikator 6: Kepesertaan BPJS",
+          ["Terdaftar Lengkap", "Sebagian", "Belum Terdaftar"],
+          [jml_bpjs_lengkap, jml_bpjs_sebagian, jml_bpjs_belum],
+          {
+              "Terdaftar Lengkap": "#e377c2",
+              "Sebagian": "#f7b6d2",
+              "Belum Terdaftar": "#e0e0e0",
+          },
       ),
       use_container_width=True,
   )
