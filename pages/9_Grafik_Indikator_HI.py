@@ -14,7 +14,6 @@ st.set_page_config(
     page_title="Dashboard Grafik Indikator HI", page_icon="📊", layout="wide"
 )
 
-# Inisialisasi Koneksi Supabase
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 
@@ -30,19 +29,36 @@ st.title("📊 Dashboard Capaian 5 Indikator Hubungan Industrial")
 st.markdown("---")
 
 
-# Ambil data dari kedua tabel
+def fetch_all_rows(table_name: str) -> pd.DataFrame:
+  all_data = []
+  batch_size = 1000
+  offset = 0
+  while True:
+    res = (
+        supabase.table(table_name)
+        .select("*")
+        .order("id", desc=False)
+        .range(offset, offset + batch_size - 1)
+        .execute()
+    )
+    batch = res.data or []
+    all_data.extend(batch)
+    if len(batch) < batch_size:
+      break
+    offset += batch_size
+  return pd.DataFrame(all_data)
+
+
 def load_all_data():
   df_perusahaan = pd.DataFrame()
   df_pengaduan = pd.DataFrame()
   try:
-    res_p = supabase.table("tabel_perusahaan").select("*").execute()
-    df_perusahaan = pd.DataFrame(res_p.data)
+    df_perusahaan = fetch_all_rows("tabel_perusahaan")
   except Exception as e:
     st.error(f"Gagal memuat tabel_perusahaan: {e}")
 
   try:
-    res_k = supabase.table("tabel_pengaduan").select("*").execute()
-    df_pengaduan = pd.DataFrame(res_k.data)
+    df_pengaduan = fetch_all_rows("tabel_pengaduan")
   except Exception as e:
     st.error(f"Gagal memuat tabel_pengaduan: {e}")
 
@@ -57,7 +73,6 @@ df_perusahaan, df_pengaduan = load_all_data()
 with st.expander("🔍 Filter Data Tampilan", expanded=False):
   f_col1, f_col2 = st.columns(2)
 
-  # Filter status perusahaan untuk Indikator 1, 2, 3, 5
   status_perusahaan_opsi = ["Semua Status Perusahaan"]
   if not df_perusahaan.empty and "status" in df_perusahaan.columns:
     status_perusahaan_opsi += sorted(
@@ -67,7 +82,6 @@ with st.expander("🔍 Filter Data Tampilan", expanded=False):
       "Filter Status Perusahaan (Indikator 1, 2, 3, 5):", status_perusahaan_opsi
   )
 
-  # Filter tahun masuk pengaduan untuk Indikator 4
   tahun_opsi = ["Semua Tahun"]
   if not df_pengaduan.empty and "tanggal_masuk" in df_pengaduan.columns:
     df_pengaduan["tahun"] = pd.to_datetime(
@@ -82,7 +96,6 @@ with st.expander("🔍 Filter Data Tampilan", expanded=False):
       "Filter Tahun Pengaduan (Indikator 4):", tahun_opsi
   )
 
-# Terapkan filter
 df_p_filtered = df_perusahaan.copy()
 if (
     not df_p_filtered.empty
@@ -114,7 +127,6 @@ if total_perusahaan > 0:
   jml_lks = int((df_p_filtered["lks_bipartit"] == "Ada").sum())
   persen_lks = (jml_lks / total_perusahaan) * 100
 
-  # Indikator 5: Pembinaan dianggap sudah dilakukan jika kolom 'pembinaan' terisi (bukan kosong atau '-')
   pembinaan_bersih = (
       df_p_filtered["pembinaan"].fillna("").astype(str).str.strip()
   )
@@ -124,7 +136,6 @@ else:
   jml_pp = jml_pkb = jml_lks = jml_pembinaan = 0
   persen_pp = persen_pkb = persen_lks = persen_pembinaan = 0.0
 
-# Indikator 4: Perselisihan HI yang diselesaikan (dari tabel_pengaduan)
 total_perselisihan = len(df_k_filtered)
 if total_perselisihan > 0 and "status" in df_k_filtered.columns:
   jml_selesai = int((df_k_filtered["status"] == "Selesai").sum())
@@ -142,31 +153,31 @@ m1, m2, m3, m4, m5 = st.columns(5)
 m1.metric(
     label="Indikator 1: Memiliki PP",
     value=f"{persen_pp:.1f}%",
-    delta=f"{jml_pp} dari {total_perusahaan} perusahaan",
+    delta=f"{jml_pp:,} dari {total_perusahaan:,} perusahaan",
     delta_color="off",
 )
 m2.metric(
     label="Indikator 2: Memiliki PKB",
     value=f"{persen_pkb:.1f}%",
-    delta=f"{jml_pkb} dari {total_perusahaan} perusahaan",
+    delta=f"{jml_pkb:,} dari {total_perusahaan:,} perusahaan",
     delta_color="off",
 )
 m3.metric(
     label="Indikator 3: LKS Bipartit",
     value=f"{persen_lks:.1f}%",
-    delta=f"{jml_lks} dari {total_perusahaan} perusahaan",
+    delta=f"{jml_lks:,} dari {total_perusahaan:,} perusahaan",
     delta_color="off",
 )
 m4.metric(
     label="Indikator 4: Kasus Selesai",
     value=f"{persen_selesai:.1f}%",
-    delta=f"{jml_selesai} dari {total_perselisihan} kasus",
+    delta=f"{jml_selesai:,} dari {total_perselisihan:,} kasus",
     delta_color="off",
 )
 m5.metric(
     label="Indikator 5: Pembinaan HI",
     value=f"{persen_pembinaan:.1f}%",
-    delta=f"{jml_pembinaan} dari {total_perusahaan} perusahaan",
+    delta=f"{jml_pembinaan:,} dari {total_perusahaan:,} perusahaan",
     delta_color="off",
 )
 
@@ -193,11 +204,11 @@ df_ringkasan = pd.DataFrame({
         round(persen_pembinaan, 2),
     ],
     "Keterangan": [
-        f"{jml_pp} / {total_perusahaan} Perusahaan",
-        f"{jml_pkb} / {total_perusahaan} Perusahaan",
-        f"{jml_lks} / {total_perusahaan} Perusahaan",
-        f"{jml_selesai} / {total_perselisihan} Kasus",
-        f"{jml_pembinaan} / {total_perusahaan} Perusahaan",
+        f"{jml_pp:,} / {total_perusahaan:,} Perusahaan",
+        f"{jml_pkb:,} / {total_perusahaan:,} Perusahaan",
+        f"{jml_lks:,} / {total_perusahaan:,} Perusahaan",
+        f"{jml_selesai:,} / {total_perselisihan:,} Kasus",
+        f"{jml_pembinaan:,} / {total_perusahaan:,} Perusahaan",
     ],
 })
 
@@ -266,7 +277,6 @@ def buat_donut(judul, label_ya, jml_ya, label_tidak, jml_tidak, warna_ya):
   return fig
 
 
-# Baris 1: Indikator 1, 2, 3
 c1, c2, c3 = st.columns(3)
 with c1:
   st.plotly_chart(
@@ -305,7 +315,6 @@ with c3:
       use_container_width=True,
   )
 
-# Baris 2: Indikator 4 dan 5
 c4, c5 = st.columns(2)
 with c4:
   st.plotly_chart(
