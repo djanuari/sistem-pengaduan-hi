@@ -29,18 +29,17 @@ st.title("📊 Dashboard Capaian 5 Indikator Hubungan Industrial")
 st.markdown("---")
 
 
-def fetch_all_rows(table_name: str) -> pd.DataFrame:
+def fetch_all_rows(
+    table_name: str, order_col: str | None = None
+) -> pd.DataFrame:
   all_data = []
   batch_size = 1000
   offset = 0
   while True:
-    res = (
-        supabase.table(table_name)
-        .select("*")
-        .order("id", desc=False)
-        .range(offset, offset + batch_size - 1)
-        .execute()
-    )
+    query = supabase.table(table_name).select("*")
+    if order_col:
+      query = query.order(order_col, desc=False)
+    res = query.range(offset, offset + batch_size - 1).execute()
     batch = res.data or []
     all_data.extend(batch)
     if len(batch) < batch_size:
@@ -53,12 +52,13 @@ def load_all_data():
   df_perusahaan = pd.DataFrame()
   df_pengaduan = pd.DataFrame()
   try:
-    df_perusahaan = fetch_all_rows("tabel_perusahaan")
+    df_perusahaan = fetch_all_rows("tabel_perusahaan", order_col="id")
   except Exception as e:
     st.error(f"Gagal memuat tabel_perusahaan: {e}")
 
   try:
-    df_pengaduan = fetch_all_rows("tabel_pengaduan")
+    # Tanpa order_col='id' agar aman dengan struktur kolom tabel_pengaduan
+    df_pengaduan = fetch_all_rows("tabel_pengaduan", order_col=None)
   except Exception as e:
     st.error(f"Gagal memuat tabel_pengaduan: {e}")
 
