@@ -42,6 +42,13 @@ def safe_str(val):
   return str(val) if val is not None and str(val) != "None" else ""
 
 
+# Fungsi helper untuk membersihkan mode edit sekaligus reset centang/seleksi tabel
+def tutup_mode_edit():
+  st.session_state.edit_perusahaan_id = None
+  if "tabel_daftar_perusahaan_klik" in st.session_state:
+    del st.session_state["tabel_daftar_perusahaan_klik"]
+
+
 def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
   pdf = FPDF(orientation="L", unit="mm", format="A4")
   pdf.set_auto_page_break(auto=True, margin=12)
@@ -198,12 +205,11 @@ def load_data():
 
 df_raw = load_data()
 
-# Inisialisasi state untuk edit langsung di tab yang sama (tanpa buka jendela baru)
 if "edit_perusahaan_id" not in st.session_state:
   st.session_state.edit_perusahaan_id = None
 
 # ==========================================
-# MODE EDIT CEPAT DI TAB YANG SAMA (TANPA LOGIN ULANG)
+# MODE EDIT CEPAT DI TAB YANG SAMA
 # ==========================================
 if st.session_state.edit_perusahaan_id is not None and not df_raw.empty:
   id_target = st.session_state.edit_perusahaan_id
@@ -212,9 +218,13 @@ if st.session_state.edit_perusahaan_id is not None and not df_raw.empty:
   if not df_match.empty:
     row_edit = df_match.iloc[0]
 
-    col_back, col_title = st.columns([1, 4])
-    if col_back.button("⬅️ Kembali ke Daftar", use_container_width=True):
-      st.session_state.edit_perusahaan_id = None
+    col_back, col_title = st.columns([1.2, 4])
+    if col_back.button(
+        "⬅️ Kembali ke Daftar",
+        key="btn_kembali_atas",
+        use_container_width=True,
+    ):
+      tutup_mode_edit()
       st.rerun()
 
     col_title.subheader(
@@ -311,7 +321,7 @@ if st.session_state.edit_perusahaan_id is not None and not df_raw.empty:
       )
 
     if batal_klik:
-      st.session_state.edit_perusahaan_id = None
+      tutup_mode_edit()
       st.rerun()
 
     if simpan_klik:
@@ -339,7 +349,7 @@ if st.session_state.edit_perusahaan_id is not None and not df_raw.empty:
           supabase.table("tabel_perusahaan").update(data_upd).eq(
               "id", id_target
           ).execute()
-          st.session_state.edit_perusahaan_id = None
+          tutup_mode_edit()
           st.success(f"Data **{u_nama}** berhasil diperbarui!")
           st.rerun()
         except Exception as e:
@@ -347,7 +357,7 @@ if st.session_state.edit_perusahaan_id is not None and not df_raw.empty:
 
     st.stop()
   else:
-    st.session_state.edit_perusahaan_id = None
+    tutup_mode_edit()
 
 # ==========================================
 # TAMPILAN UTAMA (5 TAB)
@@ -496,7 +506,6 @@ with tab1:
             unsafe_allow_html=True,
         )
 
-    # Tabel interaktif: klik baris langsung membuka form edit di halaman yang sama
     event_tabel = st.dataframe(
         df_halaman,
         use_container_width=True,
