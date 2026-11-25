@@ -108,7 +108,7 @@ if not df_k_filtered.empty and pilih_tahun != "Semua Tahun":
     df_k_filtered = df_k_filtered.iloc[0:0]
 
 # ==========================================
-# HITUNG 6 INDIKATOR UTAMA (TERMASUK BPJS)
+# HITUNG 6 INDIKATOR UTAMA (TERMASUK BPJS: SUDAH vs BELUM)
 # ==========================================
 total_perusahaan = len(df_p_filtered)
 
@@ -128,23 +128,24 @@ if total_perusahaan > 0:
   jml_pembinaan = int(((pembinaan_bersih != "") & (pembinaan_bersih != "-")).sum())
   persen_pembinaan = (jml_pembinaan / total_perusahaan) * 100
 
-  # Indikator BPJS
+  # Indikator BPJS (Sudah vs Belum)
   if "bpjs" in df_p_filtered.columns:
     bpjs_series = df_p_filtered["bpjs"].fillna("").astype(str).str.strip()
-    jml_bpjs_lengkap = int(
-        (bpjs_series == "Terdaftar Lengkap (Kesehatan & TK)").sum()
-    )
-    jml_bpjs_sebagian = int((bpjs_series == "Sebagian").sum())
-    jml_bpjs_terdaftar = jml_bpjs_lengkap + jml_bpjs_sebagian
-    jml_bpjs_belum = max(total_perusahaan - jml_bpjs_terdaftar, 0)
+    kategori_sudah = {
+        "Sudah",
+        "Terdaftar Lengkap (Kesehatan & TK)",
+        "Sebagian",
+    }
+    jml_bpjs_sudah = int(bpjs_series.isin(kategori_sudah).sum())
+    jml_bpjs_belum = max(total_perusahaan - jml_bpjs_sudah, 0)
   else:
-    jml_bpjs_lengkap = jml_bpjs_sebagian = jml_bpjs_terdaftar = 0
+    jml_bpjs_sudah = 0
     jml_bpjs_belum = total_perusahaan
 
-  persen_bpjs = (jml_bpjs_terdaftar / total_perusahaan) * 100
+  persen_bpjs = (jml_bpjs_sudah / total_perusahaan) * 100
 else:
   jml_pp = jml_pkb = jml_lks = jml_pembinaan = 0
-  jml_bpjs_lengkap = jml_bpjs_sebagian = jml_bpjs_terdaftar = jml_bpjs_belum = 0
+  jml_bpjs_sudah = jml_bpjs_belum = 0
   persen_pp = persen_pkb = persen_lks = persen_pembinaan = persen_bpjs = 0.0
 
 total_perselisihan = len(df_k_filtered)
@@ -192,9 +193,9 @@ m5.metric(
     delta_color="off",
 )
 m6.metric(
-    label="6. Terdaftar BPJS",
+    label="6. Kepesertaan BPJS",
     value=f"{persen_bpjs:.1f}%",
-    delta=f"{jml_bpjs_terdaftar:,} / {total_perusahaan:,}",
+    delta=f"{jml_bpjs_sudah:,} / {total_perusahaan:,}",
     delta_color="off",
 )
 
@@ -212,7 +213,7 @@ df_ringkasan = pd.DataFrame({
         "3. Memiliki LKS Bipartit",
         "4. Perselisihan Selesai",
         "5. Mendapat Pembinaan HI",
-        "6. Terdaftar BPJS",
+        "6. Kepesertaan BPJS",
     ],
     "Persentase (%)": [
         round(persen_pp, 2),
@@ -228,10 +229,7 @@ df_ringkasan = pd.DataFrame({
         f"{jml_lks:,} / {total_perusahaan:,} Perusahaan",
         f"{jml_selesai:,} / {total_perselisihan:,} Kasus",
         f"{jml_pembinaan:,} / {total_perusahaan:,} Perusahaan",
-        (
-            f"{jml_bpjs_terdaftar:,} / {total_perusahaan:,} Perusahaan"
-            f" (Lengkap: {jml_bpjs_lengkap:,}, Sebagian: {jml_bpjs_sebagian:,})"
-        ),
+        f"{jml_bpjs_sudah:,} / {total_perusahaan:,} Perusahaan",
     ],
 })
 
@@ -334,7 +332,7 @@ with c3:
       use_container_width=True,
   )
 
-# Baris 2: Indikator 4, 5, 6 (BPJS)
+# Baris 2: Indikator 4, 5, 6 (BPJS: Sudah vs Belum)
 c4, c5, c6 = st.columns(3)
 with c4:
   st.plotly_chart(
@@ -360,13 +358,9 @@ with c6:
   st.plotly_chart(
       buat_donut(
           "Indikator 6: Kepesertaan BPJS",
-          ["Terdaftar Lengkap", "Sebagian", "Belum Terdaftar"],
-          [jml_bpjs_lengkap, jml_bpjs_sebagian, jml_bpjs_belum],
-          {
-              "Terdaftar Lengkap": "#e377c2",
-              "Sebagian": "#f7b6d2",
-              "Belum Terdaftar": "#e0e0e0",
-          },
+          ["Sudah", "Belum"],
+          [jml_bpjs_sudah, jml_bpjs_belum],
+          {"Sudah": "#e377c2", "Belum": "#e0e0e0"},
       ),
       use_container_width=True,
   )
