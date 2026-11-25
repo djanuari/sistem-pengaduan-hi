@@ -198,24 +198,23 @@ def load_data():
 
 df_raw = load_data()
 
-# ==========================================
-# MODE EDIT CEPAT JIKA NAMA PERUSAHAAN DIKLIK
-# ==========================================
-edit_id_param = st.query_params.get("edit_id")
+# Inisialisasi state untuk edit langsung di tab yang sama (tanpa buka jendela baru)
+if "edit_perusahaan_id" not in st.session_state:
+  st.session_state.edit_perusahaan_id = None
 
-if edit_id_param is not None and not df_raw.empty:
-  try:
-    id_target = int(edit_id_param)
-    df_match = df_raw[df_raw["id"] == id_target]
-  except ValueError:
-    df_match = pd.DataFrame()
+# ==========================================
+# MODE EDIT CEPAT DI TAB YANG SAMA (TANPA LOGIN ULANG)
+# ==========================================
+if st.session_state.edit_perusahaan_id is not None and not df_raw.empty:
+  id_target = st.session_state.edit_perusahaan_id
+  df_match = df_raw[df_raw["id"] == id_target]
 
   if not df_match.empty:
     row_edit = df_match.iloc[0]
 
     col_back, col_title = st.columns([1, 4])
     if col_back.button("⬅️ Kembali ke Daftar", use_container_width=True):
-      st.query_params.clear()
+      st.session_state.edit_perusahaan_id = None
       st.rerun()
 
     col_title.subheader(
@@ -312,7 +311,7 @@ if edit_id_param is not None and not df_raw.empty:
       )
 
     if batal_klik:
-      st.query_params.clear()
+      st.session_state.edit_perusahaan_id = None
       st.rerun()
 
     if simpan_klik:
@@ -340,15 +339,15 @@ if edit_id_param is not None and not df_raw.empty:
           supabase.table("tabel_perusahaan").update(data_upd).eq(
               "id", id_target
           ).execute()
+          st.session_state.edit_perusahaan_id = None
           st.success(f"Data **{u_nama}** berhasil diperbarui!")
-          st.query_params.clear()
           st.rerun()
         except Exception as e:
           st.error(f"Gagal memperbarui data: {e}")
 
     st.stop()
   else:
-    st.query_params.clear()
+    st.session_state.edit_perusahaan_id = None
 
 # ==========================================
 # TAMPILAN UTAMA (5 TAB)
@@ -362,13 +361,14 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 ])
 
 # ==========================================
-# TAB 1: DAFTAR PERUSAHAAN & EKSPOR
+# TAB 1: DAFTAR PERUSAHAAN (KLIK BARIS -> EDIT) & EKSPOR
 # ==========================================
 with tab1:
   st.subheader("Rekapitulasi Data Perusahaan")
   st.caption(
-      "💡 **Tips:** Klik langsung pada **Nama Perusahaan** di dalam tabel untuk"
-      " membuka formulir edit data perusahaan tersebut."
+      "💡 **Tips:** Klik pada baris (atau kotak centang di sebelah kiri"
+      " baris) perusahaan mana pun di tabel untuk langsung membuka formulir"
+      " editnya."
   )
 
   if not df_raw.empty:
@@ -407,12 +407,6 @@ with tab1:
       df_tampil = df_tampil.drop(columns=["No"])
     df_tampil.insert(0, "No", list(range(1, len(df_tampil) + 1)))
 
-    # Buat URL aman untuk kolom link
-    edit_urls = []
-    for _, r in df_tampil.iterrows():
-      nama_bersih = safe_str(r["nama_perusahaan"]).replace("#", " ")
-      edit_urls.append(f"?edit_id={r['id']}#{nama_bersih}")
-
     kolom_mapping = {
         "No": "No",
         "nama_perusahaan": "Nama Perusahaan",
@@ -437,15 +431,14 @@ with tab1:
     )
     df_final.index = range(1, len(df_final) + 1)
 
-    df_ui = df_final.copy()
-    df_ui["Nama Perusahaan"] = edit_urls
-
-    total_data = len(df_ui)
+    total_data = len(df_final)
 
     if baris_per_halaman == "Semua" or total_data == 0:
       total_halaman = 1
       halaman_aktif = 1
-      df_halaman = df_ui
+      start_row = 0
+      end_row = total_data
+      df_halaman = df_final
       mulai_idx = 1 if total_data > 0 else 0
       akhir_idx = total_data
     else:
@@ -491,7 +484,7 @@ with tab1:
       halaman_aktif = st.session_state.halaman_perusahaan
       start_row = (halaman_aktif - 1) * baris_per_halaman
       end_row = min(start_row + baris_per_halaman, total_data)
-      df_halaman = df_ui.iloc[start_row:end_row]
+      df_halaman = df_final.iloc[start_row:end_row]
       mulai_idx = start_row + 1
       akhir_idx = end_row
 
@@ -503,18 +496,23 @@ with tab1:
             unsafe_allow_html=True,
         )
 
-    st.dataframe(
+    # Tabel interaktif: klik baris langsung membuka form edit di halaman yang sama
+    event_tabel = st.dataframe(
         df_halaman,
         use_container_width=True,
         hide_index=True,
-        column_config={
-            "Nama Perusahaan": st.column_config.LinkColumn(
-                "Nama Perusahaan",
-                help="Klik nama perusahaan untuk mengedit datanya",
-                display_text=r"\?edit_id=\d+#(.*)",
-            )
-        },
+        on_select="rerun",
+        selection_mode="single-row",
+        key="tabel_daftar_perusahaan_klik",
     )
+
+    if event_tabel and event_tabel.selection and event_tabel.selection.rows:
+      baris_terpilih_lokal = event_tabel.selection.rows[0]
+      indeks_global = start_row + baris_terpilih_lokal
+      if indeks_global < len(df_tampil):
+        id_perusahaan_klik = int(df_tampil.iloc[indeks_global]["id"])
+        st.session_state.edit_perusahaan_id = id_perusahaan_klik
+        st.rerun()
 
     st.caption(
         f"Menampilkan baris **{mulai_idx:,}–{akhir_idx:,}** dari total"
