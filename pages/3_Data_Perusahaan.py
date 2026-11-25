@@ -42,7 +42,6 @@ def safe_str(val):
   return str(val) if val is not None and str(val) != "None" else ""
 
 
-# Fungsi Pembuat PDF Landscape A4 (16 Kolom)
 def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
   pdf = FPDF(orientation="L", unit="mm", format="A4")
   pdf.set_auto_page_break(auto=True, margin=12)
@@ -170,7 +169,6 @@ def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
   return bytes(pdf.output())
 
 
-# Ambil SELURUH data dari Supabase tanpa batas 1.000 baris
 def load_data():
   try:
     all_data = []
@@ -201,7 +199,7 @@ def load_data():
 df_raw = load_data()
 
 # ==========================================
-# MODE EDIT CEPAT JIKA NAMA PERUSAHAAN DIKLIK DARI TABEL
+# MODE EDIT CEPAT JIKA NAMA PERUSAHAAN DIKLIK
 # ==========================================
 edit_id_param = st.query_params.get("edit_id")
 
@@ -364,7 +362,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 ])
 
 # ==========================================
-# TAB 1: DAFTAR PERUSAHAAN (KLIK NAMA -> EDIT) & EKSPOR
+# TAB 1: DAFTAR PERUSAHAAN & EKSPOR
 # ==========================================
 with tab1:
   st.subheader("Rekapitulasi Data Perusahaan")
@@ -409,11 +407,11 @@ with tab1:
       df_tampil = df_tampil.drop(columns=["No"])
     df_tampil.insert(0, "No", list(range(1, len(df_tampil) + 1)))
 
-    # Simpan kolom id sementara untuk membuat tautan klik edit
-    df_tampil["edit_url"] = df_tampil.apply(
-        lambda r: f"?edit_id={r['id']}#{safe_str(r['nama_perusahaan'])}",
-        axis=1,
-    )
+    # Buat URL aman untuk kolom link
+    edit_urls = []
+    for _, r in df_tampil.iterrows():
+      nama_bersih = safe_str(r["nama_perusahaan"]).replace("#", " ")
+      edit_urls.append(f"?edit_id={r['id']}#{nama_bersih}")
 
     kolom_mapping = {
         "No": "No",
@@ -434,15 +432,13 @@ with tab1:
         "status": "Status",
     }
 
-    # Data bersih untuk ekspor Excel/CSV/PDF (tanpa URL)
     df_final = df_tampil[list(kolom_mapping.keys())].rename(
         columns=kolom_mapping
     )
     df_final.index = range(1, len(df_final) + 1)
 
-    # Data untuk tampilan tabel UI (Nama Perusahaan diganti dengan tautan klik)
     df_ui = df_final.copy()
-    df_ui["Nama Perusahaan"] = df_tampil["edit_url"].values
+    df_ui["Nama Perusahaan"] = edit_urls
 
     total_data = len(df_ui)
 
@@ -507,7 +503,6 @@ with tab1:
             unsafe_allow_html=True,
         )
 
-    # Tampilkan tabel dengan LinkColumn pada Nama Perusahaan agar bisa diklik
     st.dataframe(
         df_halaman,
         use_container_width=True,
@@ -659,4 +654,312 @@ with tab3:
           "Jl. Ahmad Yani No. 25, Kendari",
       ],
       "No. Telepon": ["081234567890", "082345678901"],
-      "Email": ["hrd@contohsejaht
+      "Email": ["hrd@contohsejahtera.co.id", "admin@majubersama.com"],
+  })
+  buf_tpl = io.BytesIO()
+  with pd.ExcelWriter(buf_tpl, engine="openpyxl") as writer:
+    df_template.to_excel(writer, index=False, sheet_name="Template")
+
+  st.download_button(
+      label="📥 Unduh Contoh Format Excel (.xlsx)",
+      data=buf_tpl.getvalue(),
+      file_name="Template_Impor_Perusahaan.xlsx",
+      mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  )
+
+  uploaded_excel = st.file_uploader(
+      "Pilih File Excel Daftar Perusahaan:", type=["xlsx", "xls"]
+  )
+
+  if uploaded_excel is not None:
+    try:
+      df_up = pd.read_excel(uploaded_excel)
+      df_up = df_up.dropna(how="all")
+
+      if df_up.empty:
+        st.warning("File Excel yang diunggah kosong.")
+      else:
+        st.write(f"Pratinjau data ({len(df_up):,} baris ditemukan):")
+        df_preview = df_up.head(10).reset_index(drop=True).copy()
+        if "No" in df_preview.columns:
+          df_preview = df_preview.drop(columns=["No"])
+        df_preview.insert(0, "No", list(range(1, len(df_preview) + 1)))
+        df_preview.index = range(1, len(df_preview) + 1)
+        st.dataframe(df_preview, use_container_width=True, hide_index=True)
+
+        kolom_excel = list(df_up.columns)
+        opsi_opsional = ["(Tidak ada / Kosongkan)"] + kolom_excel
+
+        def cari_indeks_awal(daftar_kolom, kata_kunci_list, default_idx=0):
+          for idx, col in enumerate(daftar_kolom):
+            nama_col = str(col).strip().lower()
+            if any(k in nama_col for k in kata_kunci_list):
+              return idx
+          return default_idx
+
+        idx_nama = cari_indeks_awal(kolom_excel, ["nama", "perusahaan"], 0)
+        idx_alamat = cari_indeks_awal(opsi_opsional, ["alamat", "address"], 0)
+        idx_telp = cari_indeks_awal(
+            opsi_opsional, ["telp", "telepon", "hp", "kontak", "wa"], 0
+        )
+        idx_email = cari_indeks_awal(opsi_opsional, ["email", "surel"], 0)
+
+        st.markdown("**Pasangkan Kolom Excel ke Database:**")
+        m1, m2 = st.columns(2)
+        kolom_nama = m1.selectbox(
+            "Kolom Nama Perusahaan (Wajib) *:",
+            kolom_excel,
+            index=idx_nama,
+        )
+        kolom_alamat = m2.selectbox(
+            "Kolom Alamat:",
+            opsi_opsional,
+            index=idx_alamat,
+        )
+
+        m3, m4 = st.columns(2)
+        kolom_telp = m3.selectbox(
+            "Kolom Nomor Telepon:",
+            opsi_opsional,
+            index=idx_telp,
+        )
+        kolom_email = m4.selectbox(
+            "Kolom Email:",
+            opsi_opsional,
+            index=idx_email,
+        )
+
+        lewati_duplikat = st.checkbox(
+            "Lewati nama perusahaan yang sudah ada di database (cegah data"
+            " ganda)",
+            value=True,
+        )
+
+        if st.button("🚀 Mulai Impor ke Database", type="primary"):
+          existing_names = set()
+          if not df_raw.empty and "nama_perusahaan" in df_raw.columns:
+            existing_names = {
+                str(n).strip().lower()
+                for n in df_raw["nama_perusahaan"].dropna()
+            }
+
+          records_to_insert = []
+          jumlah_dilewati = 0
+
+          def ambil_nilai_terpilih(baris, pilihan_kolom):
+            if pilihan_kolom == "(Tidak ada / Kosongkan)":
+              return ""
+            val = baris.get(pilihan_kolom)
+            if pd.isna(val):
+              return ""
+            val_str = str(val).strip()
+            if val_str.endswith(".0") and val_str[:-2].isdigit():
+              val_str = val_str[:-2]
+            return "" if val_str.lower() == "nan" else val_str
+
+          for _, r in df_up.iterrows():
+            nama_val = ambil_nilai_terpilih(r, kolom_nama)
+            if not nama_val:
+              continue
+
+            if lewati_duplikat and nama_val.lower() in existing_names:
+              jumlah_dilewati += 1
+              continue
+
+            existing_names.add(nama_val.lower())
+
+            records_to_insert.append({
+                "nama_perusahaan": nama_val,
+                "nib": "",
+                "alamat": ambil_nilai_terpilih(r, kolom_alamat),
+                "no_telp": ambil_nilai_terpilih(r, kolom_telp),
+                "email": ambil_nilai_terpilih(r, kolom_email),
+                "jumlah_pekerja": 0,
+                "pp": "Tidak Ada",
+                "pkb": "Tidak Ada",
+                "lks_bipartit": "Tidak Ada",
+                "sp_sb": "Tidak Ada",
+                "bpjs": "Belum Terdaftar",
+                "perselisihan": "",
+                "phk": "",
+                "pembinaan": "",
+                "status": "Aktif",
+            })
+
+          if records_to_insert:
+            batch_size = 200
+            for i in range(0, len(records_to_insert), batch_size):
+              supabase.table("tabel_perusahaan").insert(
+                  records_to_insert[i : i + batch_size]
+              ).execute()
+
+            pesan = (
+                f"Berhasil mengimpor **{len(records_to_insert):,}**"
+                " perusahaan baru ke database!"
+            )
+            if jumlah_dilewati > 0:
+              pesan += f" ({jumlah_dilewati:,} data duplikat dilewati)."
+            st.success(pesan)
+            st.rerun()
+          else:
+            st.warning(
+                "Tidak ada data baru yang diimpor (semua baris kosong atau"
+                " sudah ada di database)."
+            )
+
+    except Exception as e:
+      st.error(f"Terjadi kesalahan saat membaca/mengimpor file Excel: {e}")
+
+# ==========================================
+# TAB 4: EDIT DATA PERUSAHAAN (VIA DROPDOWN)
+# ==========================================
+with tab4:
+  if not df_raw.empty:
+    pilihan_dict = {
+        f"{row['nama_perusahaan']} (NIB: {row['nib'] or '-'})": row["id"]
+        for _, row in df_raw.iterrows()
+    }
+    label_pilih = st.selectbox(
+        "Pilih Perusahaan yang Ingin Diedit:", list(pilihan_dict.keys())
+    )
+    id_pilih = pilihan_dict[label_pilih]
+    row_edit = df_raw[df_raw["id"] == id_pilih].iloc[0]
+
+    with st.form("form_edit_perusahaan"):
+      ec1, ec2 = st.columns(2)
+      u_nama = ec1.text_input(
+          "Nama Perusahaan *", value=safe_str(row_edit["nama_perusahaan"])
+      )
+      u_nib = ec2.text_input("NIB", value=safe_str(row_edit["nib"]))
+
+      ec3, ec4 = st.columns(2)
+      u_telp = ec3.text_input(
+          "Nomor Telepon", value=safe_str(row_edit.get("no_telp", ""))
+      )
+      u_email = ec4.text_input(
+          "Email Perusahaan", value=safe_str(row_edit.get("email", ""))
+      )
+
+      ec5, ec6 = st.columns([2, 1])
+      u_alamat = ec5.text_area("Alamat", value=safe_str(row_edit["alamat"]))
+      u_pekerja = ec6.number_input(
+          "Jumlah Pekerja",
+          min_value=0,
+          step=1,
+          value=int(row_edit["jumlah_pekerja"] or 0),
+      )
+
+      st.markdown("**Kelengkapan Perangkat Hubungan Industrial**")
+      ek1, ek2, ek3, ek4, ek5 = st.columns(5)
+      u_pp = ek1.selectbox(
+          "PP",
+          opsi_ada,
+          index=opsi_ada.index(row_edit["pp"])
+          if row_edit["pp"] in opsi_ada
+          else 0,
+      )
+      u_pkb = ek2.selectbox(
+          "PKB",
+          opsi_ada,
+          index=opsi_ada.index(row_edit["pkb"])
+          if row_edit["pkb"] in opsi_ada
+          else 0,
+      )
+      u_lks = ek3.selectbox(
+          "LKS Bipartit",
+          opsi_ada,
+          index=opsi_ada.index(row_edit["lks_bipartit"])
+          if row_edit["lks_bipartit"] in opsi_ada
+          else 0,
+      )
+      u_sp = ek4.selectbox(
+          "SP/SB",
+          opsi_ada,
+          index=opsi_ada.index(row_edit["sp_sb"])
+          if row_edit["sp_sb"] in opsi_ada
+          else 0,
+      )
+      u_bpjs = ek5.selectbox(
+          "BPJS",
+          opsi_bpjs,
+          index=opsi_bpjs.index(row_edit["bpjs"])
+          if row_edit["bpjs"] in opsi_bpjs
+          else 0,
+      )
+
+      st.markdown("**Catatan Kasus & Pembinaan**")
+      ep1, ep2 = st.columns(2)
+      u_perselisihan = ep1.text_area(
+          "Perselisihan", value=safe_str(row_edit["perselisihan"])
+      )
+      u_phk = ep2.text_area("PHK", value=safe_str(row_edit["phk"]))
+
+      ep3, ep4 = st.columns([2, 1])
+      u_pembinaan = ep3.text_area(
+          "Pembinaan", value=safe_str(row_edit["pembinaan"])
+      )
+      u_status = ep4.selectbox(
+          "Status",
+          opsi_status,
+          index=opsi_status.index(row_edit["status"])
+          if row_edit["status"] in opsi_status
+          else 0,
+      )
+
+      if st.form_submit_button("Simpan Perubahan", type="primary"):
+        if not u_nama.strip():
+          st.error("Nama Perusahaan tidak boleh kosong!")
+        else:
+          try:
+            data_upd = {
+                "nama_perusahaan": u_nama.strip(),
+                "nib": u_nib.strip(),
+                "alamat": u_alamat.strip(),
+                "no_telp": u_telp.strip(),
+                "email": u_email.strip(),
+                "jumlah_pekerja": int(u_pekerja),
+                "pp": u_pp,
+                "pkb": u_pkb,
+                "lks_bipartit": u_lks,
+                "sp_sb": u_sp,
+                "bpjs": u_bpjs,
+                "perselisihan": u_perselisihan.strip(),
+                "phk": u_phk.strip(),
+                "pembinaan": u_pembinaan.strip(),
+                "status": u_status,
+            }
+            supabase.table("tabel_perusahaan").update(data_upd).eq(
+                "id", id_pilih
+            ).execute()
+            st.success(f"Data **{u_nama}** berhasil diperbarui!")
+            st.rerun()
+          except Exception as e:
+            st.error(f"Gagal memperbarui data: {e}")
+  else:
+    st.info("Belum ada data perusahaan untuk diedit.")
+
+# ==========================================
+# TAB 5: HAPUS DATA PERUSAHAAN
+# ==========================================
+with tab5:
+  if not df_raw.empty:
+    hapus_dict = {
+        f"{row['nama_perusahaan']} (NIB: {row['nib'] or '-'})": row["id"]
+        for _, row in df_raw.iterrows()
+    }
+    label_hapus = st.selectbox(
+        "Pilih Perusahaan untuk DIHAPUS:",
+        list(hapus_dict.keys()),
+        key="hapus_perusahaan_unik",
+    )
+    id_hapus = hapus_dict[label_hapus]
+
+    if st.button("🗑️ Hapus Permanen Data Perusahaan", type="secondary"):
+      try:
+        supabase.table("tabel_perusahaan").delete().eq("id", id_hapus).execute()
+        st.success(f"Data **{label_hapus}** berhasil dihapus!")
+        st.rerun()
+      except Exception as e:
+        st.error(f"Gagal menghapus data: {e}")
+  else:
+    st.info("Tidak ada data untuk dihapus.")
