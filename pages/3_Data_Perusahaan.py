@@ -201,7 +201,6 @@ with tab1:
   st.subheader("Rekapitulasi Data Perusahaan")
 
   if not df_raw.empty:
-    # Pastikan kolom baru ada meskipun data lama bernilai null
     for col_cek in ["no_telp", "email"]:
       if col_cek not in df_raw.columns:
         df_raw[col_cek] = ""
@@ -377,9 +376,10 @@ with tab2:
 with tab3:
   st.subheader("Impor Daftar Perusahaan dari File Excel")
   st.info(
-      "Anda dapat mengunggah file Excel (`.xlsx` / `.xls`) yang **hanya"
-      " berisi kolom Nama Perusahaan saja**, atau sudah mencakup kolom"
-      " **Alamat**, **No. Telepon**, dan **Email** sekaligus."
+      "Unggah file Excel (`.xlsx` / `.xls`) Anda, lalu pasangkan kolom yang"
+      " sesuai untuk **Nama Perusahaan**, **Alamat**, **Nomor Telepon**, dan"
+      " **Email**. Jika salah satu kolom tidak ada di file Excel, pilih"
+      " **'(Tidak ada / Kosongkan)'**."
   )
 
   df_template = pd.DataFrame({
@@ -417,20 +417,49 @@ with tab3:
       if df_up.empty:
         st.warning("File Excel yang diunggah kosong.")
       else:
-        st.write(f"Ditemukan **{len(df_up)}** baris data pada file:")
+        st.write(f"Pratinjau data ({len(df_up)} baris ditemukan):")
         st.dataframe(df_up.head(10), use_container_width=True)
 
         kolom_excel = list(df_up.columns)
-        default_idx = 0
-        for i, col in enumerate(kolom_excel):
-          if "nama" in str(col).lower() or "perusahaan" in str(col).lower():
-            default_idx = i
-            break
+        opsi_opsional = ["(Tidak ada / Kosongkan)"] + kolom_excel
 
-        kolom_nama = st.selectbox(
-            "Pilih kolom di Excel yang berisi Nama Perusahaan:",
+        def cari_indeks_awal(daftar_kolom, kata_kunci_list, default_idx=0):
+          for idx, col in enumerate(daftar_kolom):
+            nama_col = str(col).strip().lower()
+            if any(k in nama_col for k in kata_kunci_list):
+              return idx
+          return default_idx
+
+        idx_nama = cari_indeks_awal(kolom_excel, ["nama", "perusahaan"], 0)
+        idx_alamat = cari_indeks_awal(opsi_opsional, ["alamat", "address"], 0)
+        idx_telp = cari_indeks_awal(
+            opsi_opsional, ["telp", "telepon", "hp", "kontak", "wa"], 0
+        )
+        idx_email = cari_indeks_awal(opsi_opsional, ["email", "surel"], 0)
+
+        st.markdown("**Pasangkan Kolom Excel ke Database:**")
+        m1, m2 = st.columns(2)
+        kolom_nama = m1.selectbox(
+            "Kolom Nama Perusahaan (Wajib) *:",
             kolom_excel,
-            index=default_idx,
+            index=idx_nama,
+        )
+        kolom_alamat = m2.selectbox(
+            "Kolom Alamat:",
+            opsi_opsional,
+            index=idx_alamat,
+        )
+
+        m3, m4 = st.columns(2)
+        kolom_telp = m3.selectbox(
+            "Kolom Nomor Telepon:",
+            opsi_opsional,
+            index=idx_telp,
+        )
+        kolom_email = m4.selectbox(
+            "Kolom Email:",
+            opsi_opsional,
+            index=idx_email,
         )
 
         lewati_duplikat = st.checkbox(
@@ -450,9 +479,20 @@ with tab3:
           records_to_insert = []
           jumlah_dilewati = 0
 
+          def ambil_nilai_terpilih(baris, pilihan_kolom):
+            if pilihan_kolom == "(Tidak ada / Kosongkan)":
+              return ""
+            val = baris.get(pilihan_kolom)
+            if pd.isna(val):
+              return ""
+            val_str = str(val).strip()
+            if val_str.endswith(".0") and val_str[:-2].isdigit():
+              val_str = val_str[:-2]
+            return "" if val_str.lower() == "nan" else val_str
+
           for _, r in df_up.iterrows():
-            nama_val = str(r.get(kolom_nama, "")).strip()
-            if not nama_val or nama_val.lower() == "nan":
+            nama_val = ambil_nilai_terpilih(r, kolom_nama)
+            if not nama_val:
               continue
 
             if lewati_duplikat and nama_val.lower() in existing_names:
@@ -461,52 +501,22 @@ with tab3:
 
             existing_names.add(nama_val.lower())
 
-            def ambil_kolom(kandidat_nama, default_val=""):
-              for c in df_up.columns:
-                if str(c).strip().lower() in kandidat_nama:
-                  val = r.get(c)
-                  if pd.notna(val) and str(val).strip() != "":
-                    return str(val).strip()
-              return default_val
-
-            pekerja_str = ambil_kolom(
-                ["jumlah pekerja", "pekerja", "jumlah_pekerja"], "0"
-            )
-            try:
-              jml_pekerja_int = int(float(pekerja_str))
-            except ValueError:
-              jml_pekerja_int = 0
-
             records_to_insert.append({
                 "nama_perusahaan": nama_val,
-                "nib": ambil_kolom(["nib"], ""),
-                "alamat": ambil_kolom(["alamat", "address"], ""),
-                "no_telp": ambil_kolom(
-                    [
-                        "no. telepon",
-                        "no telepon",
-                        "nomor telepon",
-                        "telepon",
-                        "telp",
-                        "no_telp",
-                        "hp",
-                        "kontak",
-                    ],
-                    "",
-                ),
-                "email": ambil_kolom(["email", "e-mail", "surel"], ""),
-                "jumlah_pekerja": jml_pekerja_int,
-                "pp": ambil_kolom(["pp"], "Tidak Ada"),
-                "pkb": ambil_kolom(["pkb"], "Tidak Ada"),
-                "lks_bipartit": ambil_kolom(
-                    ["lks bipartit", "lks_bipartit", "lks"], "Tidak Ada"
-                ),
-                "sp_sb": ambil_kolom(["sp/sb", "sp_sb", "sp", "sb"], "Tidak Ada"),
-                "bpjs": ambil_kolom(["bpjs"], "Belum Terdaftar"),
-                "perselisihan": ambil_kolom(["perselisihan"], ""),
-                "phk": ambil_kolom(["phk"], ""),
-                "pembinaan": ambil_kolom(["pembinaan"], ""),
-                "status": ambil_kolom(["status"], "Aktif"),
+                "nib": "",
+                "alamat": ambil_nilai_terpilih(r, kolom_alamat),
+                "no_telp": ambil_nilai_terpilih(r, kolom_telp),
+                "email": ambil_nilai_terpilih(r, kolom_email),
+                "jumlah_pekerja": 0,
+                "pp": "Tidak Ada",
+                "pkb": "Tidak Ada",
+                "lks_bipartit": "Tidak Ada",
+                "sp_sb": "Tidak Ada",
+                "bpjs": "Belum Terdaftar",
+                "perselisihan": "",
+                "phk": "",
+                "pembinaan": "",
+                "status": "Aktif",
             })
 
           if records_to_insert:
@@ -518,7 +528,8 @@ with tab3:
 
             pesan = (
                 f"Berhasil mengimpor **{len(records_to_insert)}** perusahaan"
-                " baru ke database!"
+                " (beserta Alamat, No. Telepon & Email yang tersedia) ke"
+                " database!"
             )
             if jumlah_dilewati > 0:
               pesan += f" ({jumlah_dilewati} data duplikat dilewati)."
@@ -556,133 +567,3 @@ with tab4:
       u_nib = ec2.text_input("NIB", value=safe_str(row_edit["nib"]))
 
       ec3, ec4 = st.columns(2)
-      u_telp = ec3.text_input(
-          "Nomor Telepon", value=safe_str(row_edit.get("no_telp", ""))
-      )
-      u_email = ec4.text_input(
-          "Email Perusahaan", value=safe_str(row_edit.get("email", ""))
-      )
-
-      ec5, ec6 = st.columns([2, 1])
-      u_alamat = ec5.text_area("Alamat", value=safe_str(row_edit["alamat"]))
-      u_pekerja = ec6.number_input(
-          "Jumlah Pekerja",
-          min_value=0,
-          step=1,
-          value=int(row_edit["jumlah_pekerja"] or 0),
-      )
-
-      st.markdown("**Kelengkapan Perangkat Hubungan Industrial**")
-      ek1, ek2, ek3, ek4, ek5 = st.columns(5)
-      u_pp = ek1.selectbox(
-          "PP",
-          opsi_ada,
-          index=opsi_ada.index(row_edit["pp"])
-          if row_edit["pp"] in opsi_ada
-          else 0,
-      )
-      u_pkb = ek2.selectbox(
-          "PKB",
-          opsi_ada,
-          index=opsi_ada.index(row_edit["pkb"])
-          if row_edit["pkb"] in opsi_ada
-          else 0,
-      )
-      u_lks = ek3.selectbox(
-          "LKS Bipartit",
-          opsi_ada,
-          index=opsi_ada.index(row_edit["lks_bipartit"])
-          if row_edit["lks_bipartit"] in opsi_ada
-          else 0,
-      )
-      u_sp = ek4.selectbox(
-          "SP/SB",
-          opsi_ada,
-          index=opsi_ada.index(row_edit["sp_sb"])
-          if row_edit["sp_sb"] in opsi_ada
-          else 0,
-      )
-      u_bpjs = ek5.selectbox(
-          "BPJS",
-          opsi_bpjs,
-          index=opsi_bpjs.index(row_edit["bpjs"])
-          if row_edit["bpjs"] in opsi_bpjs
-          else 0,
-      )
-
-      st.markdown("**Catatan Kasus & Pembinaan**")
-      ep1, ep2 = st.columns(2)
-      u_perselisihan = ep1.text_area(
-          "Perselisihan", value=safe_str(row_edit["perselisihan"])
-      )
-      u_phk = ep2.text_area("PHK", value=safe_str(row_edit["phk"]))
-
-      ep3, ep4 = st.columns([2, 1])
-      u_pembinaan = ep3.text_area(
-          "Pembinaan", value=safe_str(row_edit["pembinaan"])
-      )
-      u_status = ep4.selectbox(
-          "Status",
-          opsi_status,
-          index=opsi_status.index(row_edit["status"])
-          if row_edit["status"] in opsi_status
-          else 0,
-      )
-
-      if st.form_submit_button("Simpan Perubahan", type="primary"):
-        if not u_nama.strip():
-          st.error("Nama Perusahaan tidak boleh kosong!")
-        else:
-          try:
-            data_upd = {
-                "nama_perusahaan": u_nama.strip(),
-                "nib": u_nib.strip(),
-                "alamat": u_alamat.strip(),
-                "no_telp": u_telp.strip(),
-                "email": u_email.strip(),
-                "jumlah_pekerja": int(u_pekerja),
-                "pp": u_pp,
-                "pkb": u_pkb,
-                "lks_bipartit": u_lks,
-                "sp_sb": u_sp,
-                "bpjs": u_bpjs,
-                "perselisihan": u_perselisihan.strip(),
-                "phk": u_phk.strip(),
-                "pembinaan": u_pembinaan.strip(),
-                "status": u_status,
-            }
-            supabase.table("tabel_perusahaan").update(data_upd).eq(
-                "id", id_pilih
-            ).execute()
-            st.success(f"Data **{u_nama}** berhasil diperbarui!")
-            st.rerun()
-          except Exception as e:
-            st.error(f"Gagal memperbarui data: {e}")
-  else:
-    st.info("Belum ada data perusahaan untuk diedit.")
-
-# ==========================================
-# TAB 5: HAPUS DATA PERUSAHAAN
-# ==========================================
-with tab5:
-  if not df_raw.empty:
-    hapus_dict = {
-        f"{row['nama_perusahaan']} (NIB: {row['nib'] or '-'})": row["id"]
-        for _, row in df_raw.iterrows()
-    }
-    label_hapus = st.selectbox(
-        "Pilih Perusahaan untuk DIHAPUS:",
-        list(hapus_dict.keys()),
-        key="hapus_perusahaan_unik",
-    )
-    id_hapus = hapus_dict[label_hapus]
-
-    if st.button("🗑️ Hapus Permanen Data Perusahaan", type="secondary"):
-      try:
-        supabase.table("tabel_perusahaan").delete().eq("id", id_hapus).execute()
-        st.success(f"Data **{label_hapus}** berhasil dihapus!")
-        st.rerun()
-      except Exception as e:
-        st.error(f"Gagal menghapus data: {e}")
-  else:
-    st.info("Tidak ada data untuk dihapus.")
