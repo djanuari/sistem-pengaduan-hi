@@ -1,4 +1,6 @@
+import datetime
 import io
+from fpdf import FPDF
 import pandas as pd
 from supabase import Client, create_client
 import streamlit as st
@@ -13,7 +15,6 @@ st.set_page_config(
     page_title="Data Perusahaan & Pembinaan HI", page_icon="🏢", layout="wide"
 )
 
-# Inisialisasi Koneksi Supabase dari st.secrets
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 
@@ -27,7 +28,6 @@ supabase = init_supabase()
 
 st.title("🏢 Daftar Perusahaan & Pembinaan Hubungan Industrial")
 
-# Opsi pilihan dropdown standar
 opsi_ada = ["Ada", "Tidak Ada", "Dalam Proses"]
 opsi_bpjs = [
     "Terdaftar Lengkap (Kesehatan & TK)",
@@ -41,7 +41,132 @@ def safe_str(val):
   return str(val) if val is not None and str(val) != "None" else ""
 
 
-# Ambil data dari Supabase
+# Fungsi Pembuat PDF Landscape A4
+def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
+  pdf = FPDF(orientation="L", unit="mm", format="A4")
+  pdf.set_auto_page_break(auto=True, margin=12)
+  pdf.add_page()
+
+  # Judul Dokumen
+  pdf.set_font("Helvetica", "B", 13)
+  pdf.cell(
+      0,
+      8,
+      "REKAPITULASI DATA PERUSAHAAN & PEMBINAAN HUBUNGAN INDUSTRIAL",
+      ln=True,
+      align="C",
+  )
+  pdf.set_font("Helvetica", "", 9)
+  tgl_cetak = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
+  pdf.cell(
+      0,
+      6,
+      f"Dicetak pada: {tgl_cetak} | Total Perusahaan: {len(df)}",
+      ln=True,
+      align="C",
+  )
+  pdf.ln(4)
+
+  # Lebar kolom total = 277 mm (pas untuk A4 Landscape dengan margin kiri-kanan 10mm)
+  col_widths = [
+      8,
+      32,
+      20,
+      30,
+      13,
+      14,
+      14,
+      16,
+      14,
+      22,
+      24,
+      22,
+      28,
+      20,
+  ]
+  headers = [
+      "No",
+      "Nama Perusahaan",
+      "NIB",
+      "Alamat",
+      "Pekerja",
+      "PP",
+      "PKB",
+      "LKS Bip.",
+      "SP/SB",
+      "BPJS",
+      "Perselisihan",
+      "PHK",
+      "Pembinaan",
+      "Status",
+  ]
+
+  def draw_table_header():
+    pdf.set_font("Helvetica", "B", 6.5)
+    pdf.set_fill_color(44, 62, 80)
+    pdf.set_text_color(255, 255, 255)
+    for w, h in zip(col_widths, headers):
+      pdf.cell(w, 7, h, border=1, align="C", fill=True)
+    pdf.ln()
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Helvetica", "", 6.5)
+
+  draw_table_header()
+
+  for idx, row in df.iterrows():
+    # Cek jika mendekati batas bawah halaman, buat halaman baru beserta header tabel
+    if pdf.get_y() > 185:
+      pdf.add_page()
+      draw_table_header()
+
+    row_vals = [
+        str(row["No"]),
+        str(row["Nama Perusahaan"])[:26],
+        str(row["NIB"])[:15],
+        str(row["Alamat"])[:24],
+        str(row["Jumlah Pekerja"]),
+        str(row["PP"])[:10],
+        str(row["PKB"])[:10],
+        str(row["LKS Bipartit"])[:10],
+        str(row["SP/SB"])[:10],
+        str(row["BPJS"])[:16],
+        str(row["Perselisihan"])[:18],
+        str(row["PHK"])[:16],
+        str(row["Pembinaan"])[:22],
+        str(row["Status"])[:14],
+    ]
+
+    # Bersihkan karakter non-latin1 agar tidak error di FPDF standar
+    row_vals = [v.encode("latin-1", "replace").decode("latin-1") for v in row_vals]
+
+    # Warna zebra selang-seling
+    fill = idx % 2 == 1
+    if fill:
+      pdf.set_fill_color(245, 247, 250)
+
+    aligns = [
+        "C",
+        "L",
+        "C",
+        "L",
+        "R",
+        "C",
+        "C",
+        "C",
+        "C",
+        "L",
+        "L",
+        "L",
+        "L",
+        "C",
+    ]
+    for w, val, al in zip(col_widths, row_vals, aligns):
+      pdf.cell(w, 6, val, border=1, align=al, fill=fill)
+    pdf.ln()
+
+  return bytes(pdf.output())
+
+
 def load_data():
   try:
     res = (
@@ -66,13 +191,12 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # ==========================================
-# TAB 1: DAFTAR PERUSAHAAN (TABEL & EKSPOR)
+# TAB 1: DAFTAR PERUSAHAAN & EKSPOR (EXCEL, CSV, PDF)
 # ==========================================
 with tab1:
   st.subheader("Rekapitulasi Data Perusahaan")
 
   if not df_raw.empty:
-    # Filter pencarian cepat
     c_cari1, c_cari2 = st.columns([2, 1])
     kata_kunci = c_cari1.text_input(
         "🔍 Cari Nama Perusahaan / NIB / Alamat:", ""
@@ -93,10 +217,9 @@ with tab1:
     if filter_status != "Semua":
       df_tampil = df_tampil[df_tampil["status"] == filter_status]
 
-    # Tambahkan kolom No otomatis mulai dari 1
+    df_tampil = df_tampil.reset_index(drop=True)
     df_tampil.insert(0, "No", range(1, len(df_tampil) + 1))
 
-    # Susun dan ubah nama kolom sesuai format yang diminta
     kolom_mapping = {
         "No": "No",
         "nama_perusahaan": "Nama Perusahaan",
@@ -120,24 +243,46 @@ with tab1:
 
     st.dataframe(df_final, use_container_width=True, hide_index=True)
 
-    # Ringkasan singkat & Tombol Download Excel
-    col_info, col_dl = st.columns([3, 1])
-    col_info.caption(
+    st.caption(
         f"Total ditampilkan: **{len(df_final)}** perusahaan | Total pekerja:"
         f" **{int(df_final['Jumlah Pekerja'].fillna(0).sum()):,}** orang"
     )
 
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+    st.markdown("**Ekspor Data Terfilter:**")
+    col_dl1, col_dl2, col_dl3 = st.columns(3)
+
+    # 1. Tombol Excel (.xlsx)
+    buffer_excel = io.BytesIO()
+    with pd.ExcelWriter(buffer_excel, engine="openpyxl") as writer:
       df_final.to_excel(writer, index=False, sheet_name="Data_Perusahaan")
 
-    col_dl.download_button(
-        label="📥 Unduh Excel (.xlsx)",
-        data=buffer.getvalue(),
+    col_dl1.download_button(
+        label="📗 Unduh Excel (.xlsx)",
+        data=buffer_excel.getvalue(),
         file_name="Daftar_Perusahaan_HI.xlsx",
         mime=(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         ),
+        use_container_width=True,
+    )
+
+    # 2. Tombol CSV (.csv)
+    csv_data = df_final.to_csv(index=False).encode("utf-8-sig")
+    col_dl2.download_button(
+        label="📄 Unduh CSV (.csv)",
+        data=csv_data,
+        file_name="Daftar_Perusahaan_HI.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+
+    # 3. Tombol PDF (.pdf)
+    pdf_bytes = generate_pdf_perusahaan(df_final)
+    col_dl3.download_button(
+        label="📕 Unduh PDF (.pdf)",
+        data=pdf_bytes,
+        file_name="Daftar_Perusahaan_HI.pdf",
+        mime="application/pdf",
         use_container_width=True,
     )
   else:
