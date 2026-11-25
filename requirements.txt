@@ -6,3 +6,6 @@ xlsxwriter
 plotly
 reportlab
 openpyxl
+fpdf2
+
+
