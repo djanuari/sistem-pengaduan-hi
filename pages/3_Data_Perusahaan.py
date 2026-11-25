@@ -38,7 +38,6 @@ def safe_str(val):
   return str(val) if val is not None and str(val) != "None" else ""
 
 
-# Konversi berbagai variasi tulisan BPJS (dari database lama maupun file Excel) menjadi 'Sudah' atau 'Belum'
 def normalisasi_bpjs(val):
   s = safe_str(val).strip().lower()
   if any(
@@ -59,7 +58,6 @@ def normalisasi_bpjs(val):
   return "Belum"
 
 
-# Fungsi helper untuk membersihkan mode edit sekaligus mereset seleksi baris tabel
 def tutup_mode_edit():
   st.session_state.edit_perusahaan_id = None
   if "tabel_daftar_perusahaan_klik" in st.session_state:
@@ -193,7 +191,6 @@ def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
   return bytes(pdf.output())
 
 
-# Ambil SELURUH data dari Supabase tanpa batas 1.000 baris
 def load_data():
   try:
     all_data = []
@@ -227,7 +224,7 @@ if "edit_perusahaan_id" not in st.session_state:
   st.session_state.edit_perusahaan_id = None
 
 # ==========================================
-# MODE EDIT CEPAT DI TAB YANG SAMA (TANPA BUKA JENDELA BARU)
+# MODE EDIT CEPAT DI TAB YANG SAMA
 # ==========================================
 if st.session_state.edit_perusahaan_id is not None and not df_raw.empty:
   id_target = st.session_state.edit_perusahaan_id
@@ -430,7 +427,6 @@ with tab1:
     if filter_status != "Semua":
       df_tampil = df_tampil[df_tampil["status"] == filter_status]
 
-    # Selaraskan tampilan kolom BPJS menjadi 'Sudah' / 'Belum'
     df_tampil["bpjs"] = df_tampil["bpjs"].apply(normalisasi_bpjs)
 
     df_tampil = df_tampil.reset_index(drop=True)
@@ -983,28 +979,69 @@ with tab4:
     st.info("Belum ada data perusahaan untuk diedit.")
 
 # ==========================================
-# TAB 5: HAPUS DATA PERUSAHAAN
+# TAB 5: HAPUS DATA PERUSAHAAN (SATUAN & KESELURUHAN)
 # ==========================================
 with tab5:
   if not df_raw.empty:
-    hapus_dict = {
-        f"{row['nama_perusahaan']} (NIB: {row['nib'] or '-'})": row["id"]
-        for _, row in df_raw.iterrows()
-    }
-    label_hapus = st.selectbox(
-        "Pilih Perusahaan untuk DIHAPUS:",
-        list(hapus_dict.keys()),
-        key="hapus_perusahaan_unik",
-    )
-    id_hapus = hapus_dict[label_hapus]
+    col_h1, col_h2 = st.columns(2)
 
-    if st.button("🗑️ Hapus Permanen Data Perusahaan", type="secondary"):
-      try:
-        supabase.table("tabel_perusahaan").delete().eq("id", id_hapus).execute()
-        st.success(f"Data **{label_hapus}** berhasil dihapus!")
-        st.rerun()
-      except Exception as e:
-        st.error(f"Gagal menghapus data: {e}")
+    with col_h1:
+      st.subheader("1. Hapus Data Satuan")
+      hapus_dict = {
+          f"{row['nama_perusahaan']} (NIB: {row['nib'] or '-'})": row["id"]
+          for _, row in df_raw.iterrows()
+      }
+      label_hapus = st.selectbox(
+          "Pilih Perusahaan untuk DIHAPUS:",
+          list(hapus_dict.keys()),
+          key="hapus_perusahaan_unik",
+      )
+      id_hapus = hapus_dict[label_hapus]
+
+      if st.button("🗑️ Hapus Permanen 1 Perusahaan", type="secondary"):
+        try:
+          supabase.table("tabel_perusahaan").delete().eq(
+              "id", id_hapus
+          ).execute()
+          st.success(f"Data **{label_hapus}** berhasil dihapus!")
+          st.rerun()
+        except Exception as e:
+          st.error(f"Gagal menghapus data: {e}")
+
+    with col_h2:
+      st.subheader("2. Hapus Seluruh Data (Reset Total)")
+      st.error(
+          f"⚠️ Menghapus **SELURUH ({len(df_raw):,}) data perusahaan**"
+          " secara permanen dan tidak bisa dibatalkan."
+      )
+      konfirmasi_centang = st.checkbox(
+          "Saya yakin ingin menghapus seluruh data perusahaan.",
+          key="cek_hapus_semua_perusahaan",
+      )
+      konfirmasi_teks = st.text_input(
+          "Ketik HAPUS SEMUA untuk konfirmasi:",
+          placeholder="HAPUS SEMUA",
+          key="input_konfirmasi_hapus_semua",
+      )
+
+      if st.button(
+          "🚨 Hapus Semua Data Perusahaan Secara Permanen",
+          type="primary",
+          key="btn_hapus_semua_permanen",
+      ):
+        if not konfirmasi_centang or konfirmasi_teks.strip() != "HAPUS SEMUA":
+          st.warning(
+              "⚠️ Centang kotak persetujuan dan ketik **HAPUS SEMUA** terlebih"
+              " dahulu."
+          )
+        else:
+          try:
+            supabase.table("tabel_perusahaan").delete().gte("id", 0).execute()
+            tutup_mode_edit()
+            st.success("✅ Seluruh data perusahaan berhasil dihapus permanen!")
+            st.rerun()
+          except Exception as e:
+            st.error(f"Gagal menghapus seluruh data: {e}")
   else:
     st.info("Tidak ada data untuk dihapus.")
 
