@@ -47,7 +47,6 @@ def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
   pdf.set_auto_page_break(auto=True, margin=12)
   pdf.add_page()
 
-  # Judul Dokumen
   pdf.set_font("Helvetica", "B", 13)
   pdf.cell(
       0,
@@ -67,7 +66,6 @@ def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
   )
   pdf.ln(4)
 
-  # Lebar kolom total = 277 mm (pas untuk A4 Landscape dengan margin kiri-kanan 10mm)
   col_widths = [
       8,
       32,
@@ -114,7 +112,6 @@ def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
   draw_table_header()
 
   for idx, row in df.iterrows():
-    # Cek jika mendekati batas bawah halaman, buat halaman baru beserta header tabel
     if pdf.get_y() > 185:
       pdf.add_page()
       draw_table_header()
@@ -135,11 +132,8 @@ def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
         str(row["Pembinaan"])[:22],
         str(row["Status"])[:14],
     ]
-
-    # Bersihkan karakter non-latin1 agar tidak error di FPDF standar
     row_vals = [v.encode("latin-1", "replace").decode("latin-1") for v in row_vals]
 
-    # Warna zebra selang-seling
     fill = idx % 2 == 1
     if fill:
       pdf.set_fill_color(245, 247, 250)
@@ -183,9 +177,10 @@ def load_data():
 
 df_raw = load_data()
 
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📋 Daftar Perusahaan",
     "➕ Tambah Perusahaan",
+    "📤 Impor Excel",
     "✏️ Edit Data",
     "🗑️ Hapus Data",
 ])
@@ -251,7 +246,6 @@ with tab1:
     st.markdown("**Ekspor Data Terfilter:**")
     col_dl1, col_dl2, col_dl3 = st.columns(3)
 
-    # 1. Tombol Excel (.xlsx)
     buffer_excel = io.BytesIO()
     with pd.ExcelWriter(buffer_excel, engine="openpyxl") as writer:
       df_final.to_excel(writer, index=False, sheet_name="Data_Perusahaan")
@@ -266,7 +260,6 @@ with tab1:
         use_container_width=True,
     )
 
-    # 2. Tombol CSV (.csv)
     csv_data = df_final.to_csv(index=False).encode("utf-8-sig")
     col_dl2.download_button(
         label="📄 Unduh CSV (.csv)",
@@ -276,7 +269,6 @@ with tab1:
         use_container_width=True,
     )
 
-    # 3. Tombol PDF (.pdf)
     pdf_bytes = generate_pdf_perusahaan(df_final)
     col_dl3.download_button(
         label="📕 Unduh PDF (.pdf)",
@@ -288,11 +280,11 @@ with tab1:
   else:
     st.info(
         "Belum ada data perusahaan. Silakan tambahkan melalui tab **➕ Tambah"
-        " Perusahaan**."
+        " Perusahaan** atau **📤 Impor Excel**."
     )
 
 # ==========================================
-# TAB 2: TAMBAH PERUSAHAAN BARU
+# TAB 2: TAMBAH PERUSAHAAN BARU (SATUAN)
 # ==========================================
 with tab2:
   st.subheader("Input Data Perusahaan Baru")
@@ -356,9 +348,156 @@ with tab2:
         st.error(f"Gagal menyimpan data: {e}")
 
 # ==========================================
-# TAB 3: EDIT DATA PERUSAHAAN
+# TAB 3: IMPOR MASSAL DARI FILE EXCEL
 # ==========================================
 with tab3:
+  st.subheader("Impor Daftar Perusahaan dari File Excel")
+  st.info(
+      "Anda dapat mengunggah file Excel (`.xlsx` / `.xls`) yang **hanya"
+      " berisi kolom Nama Perusahaan saja**, maupun yang sudah memiliki kolom"
+      " tambahan lainnya. Kolom yang kosong akan otomatis diisi nilai standar."
+  )
+
+  # Tombol unduh template sederhana
+  df_template = pd.DataFrame({
+      "Nama Perusahaan": [
+          "PT Contoh Sejahtera",
+          "CV Maju Bersama",
+      ]
+  })
+  buf_tpl = io.BytesIO()
+  with pd.ExcelWriter(buf_tpl, engine="openpyxl") as writer:
+    df_template.to_excel(writer, index=False, sheet_name="Template")
+
+  st.download_button(
+      label="📥 Unduh Contoh Format Excel (.xlsx)",
+      data=buf_tpl.getvalue(),
+      file_name="Template_Impor_Perusahaan.xlsx",
+      mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  )
+
+  uploaded_excel = st.file_uploader(
+      "Pilih File Excel Daftar Perusahaan:", type=["xlsx", "xls"]
+  )
+
+  if uploaded_excel is not None:
+    try:
+      df_up = pd.read_excel(uploaded_excel)
+      # Hapus baris yang seluruhnya kosong
+      df_up = df_up.dropna(how="all")
+
+      if df_up.empty:
+        st.warning("File Excel yang diunggah kosong.")
+      else:
+        st.write(f"Ditemukan **{len(df_up)}** baris data pada file:")
+        st.dataframe(df_up.head(10), use_container_width=True)
+
+        # Pilih kolom mana di Excel yang berisi Nama Perusahaan
+        kolom_excel = list(df_up.columns)
+        default_idx = 0
+        for i, col in enumerate(kolom_excel):
+          if "nama" in str(col).lower() or "perusahaan" in str(col).lower():
+            default_idx = i
+            break
+
+        kolom_nama = st.selectbox(
+            "Pilih kolom di Excel yang berisi Nama Perusahaan:",
+            kolom_excel,
+            index=default_idx,
+        )
+
+        lewati_duplikat = st.checkbox(
+            "Lewati nama perusahaan yang sudah ada di database (cegah data"
+            " ganda)",
+            value=True,
+        )
+
+        if st.button("🚀 Mulai Impor ke Database", type="primary"):
+          existing_names = set()
+          if not df_raw.empty and "nama_perusahaan" in df_raw.columns:
+            existing_names = {
+                str(n).strip().lower()
+                for n in df_raw["nama_perusahaan"].dropna()
+            }
+
+          records_to_insert = []
+          jumlah_dilewati = 0
+
+          for _, r in df_up.iterrows():
+            nama_val = str(r.get(kolom_nama, "")).strip()
+            if not nama_val or nama_val.lower() == "nan":
+              continue
+
+            if lewati_duplikat and nama_val.lower() in existing_names:
+              jumlah_dilewati += 1
+              continue
+
+            existing_names.add(nama_val.lower())
+
+            # Fungsi bantu membaca kolom opsional jika kebetulan ada di file Excel
+            def ambil_kolom(kandidat_nama, default_val=""):
+              for c in df_up.columns:
+                if str(c).strip().lower() in kandidat_nama:
+                  val = r.get(c)
+                  if pd.notna(val) and str(val).strip() != "":
+                    return str(val).strip()
+              return default_val
+
+            pekerja_str = ambil_kolom(
+                ["jumlah pekerja", "pekerja", "jumlah_pekerja"], "0"
+            )
+            try:
+              jml_pekerja_int = int(float(pekerja_str))
+            except ValueError:
+              jml_pekerja_int = 0
+
+            records_to_insert.append({
+                "nama_perusahaan": nama_val,
+                "nib": ambil_kolom(["nib"], ""),
+                "alamat": ambil_kolom(["alamat"], ""),
+                "jumlah_pekerja": jml_pekerja_int,
+                "pp": ambil_kolom(["pp"], "Tidak Ada"),
+                "pkb": ambil_kolom(["pkb"], "Tidak Ada"),
+                "lks_bipartit": ambil_kolom(
+                    ["lks bipartit", "lks_bipartit", "lks"], "Tidak Ada"
+                ),
+                "sp_sb": ambil_kolom(["sp/sb", "sp_sb", "sp", "sb"], "Tidak Ada"),
+                "bpjs": ambil_kolom(["bpjs"], "Belum Terdaftar"),
+                "perselisihan": ambil_kolom(["perselisihan"], ""),
+                "phk": ambil_kolom(["phk"], ""),
+                "pembinaan": ambil_kolom(["pembinaan"], ""),
+                "status": ambil_kolom(["status"], "Aktif"),
+            })
+
+          if records_to_insert:
+            # Simpan per batch 200 baris agar cepat dan stabil
+            batch_size = 200
+            for i in range(0, len(records_to_insert), batch_size):
+              supabase.table("tabel_perusahaan").insert(
+                  records_to_insert[i : i + batch_size]
+              ).execute()
+
+            pesan = (
+                f"Berhasil mengimpor **{len(records_to_insert)}** perusahaan"
+                " baru ke database!"
+            )
+            if jumlah_dilewati > 0:
+              pesan += f" ({jumlah_dilewati} data duplikat dilewati)."
+            st.success(pesan)
+            st.rerun()
+          else:
+            st.warning(
+                "Tidak ada data baru yang diimpor (semua baris kosong atau"
+                " sudah ada di database)."
+            )
+
+    except Exception as e:
+      st.error(f"Terjadi kesalahan saat membaca/mengimpor file Excel: {e}")
+
+# ==========================================
+# TAB 4: EDIT DATA PERUSAHAAN
+# ==========================================
+with tab4:
   if not df_raw.empty:
     pilihan_dict = {
         f"{row['nama_perusahaan']} (NIB: {row['nib'] or '-'})": row["id"]
@@ -474,9 +613,9 @@ with tab3:
     st.info("Belum ada data perusahaan untuk diedit.")
 
 # ==========================================
-# TAB 4: HAPUS DATA PERUSAHAAN
+# TAB 5: HAPUS DATA PERUSAHAAN
 # ==========================================
-with tab4:
+with tab5:
   if not df_raw.empty:
     hapus_dict = {
         f"{row['nama_perusahaan']} (NIB: {row['nib'] or '-'})": row["id"]
