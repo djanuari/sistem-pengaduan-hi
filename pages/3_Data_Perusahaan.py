@@ -30,11 +30,7 @@ supabase = init_supabase()
 st.title("🏢 Daftar Perusahaan & Pembinaan Hubungan Industrial")
 
 opsi_ada = ["Ada", "Tidak Ada", "Dalam Proses"]
-opsi_bpjs = [
-    "Terdaftar Lengkap (Kesehatan & TK)",
-    "Sebagian",
-    "Belum Terdaftar",
-]
+opsi_bpjs = ["Sudah", "Belum"]
 opsi_status = ["Aktif", "Tidak Aktif", "Dalam Pengawasan / Pembinaan"]
 
 
@@ -42,7 +38,15 @@ def safe_str(val):
   return str(val) if val is not None and str(val) != "None" else ""
 
 
-# Fungsi helper untuk membersihkan mode edit sekaligus reset centang/seleksi tabel
+# Konversi nilai BPJS lama (jika ada di database) agar tetap cocok dengan opsi 'Sudah' / 'Belum'
+def normalisasi_bpjs(val):
+  s = safe_str(val).strip()
+  if s in ["Sudah", "Terdaftar Lengkap (Kesehatan & TK)", "Sebagian"]:
+    return "Sudah"
+  return "Belum"
+
+
+# Fungsi helper untuk membersihkan mode edit sekaligus mereset seleksi baris tabel
 def tutup_mode_edit():
   st.session_state.edit_perusahaan_id = None
   if "tabel_daftar_perusahaan_klik" in st.session_state:
@@ -75,18 +79,18 @@ def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
 
   col_widths = [
       7,
-      26,
+      28,
       17,
-      24,
+      26,
       18,
-      22,
-      11,
+      23,
+      12,
       12,
       12,
       14,
       12,
-      19,
-      20,
+      12,
+      21,
       18,
       20,
       15,
@@ -129,18 +133,18 @@ def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
 
     row_vals = [
         str(row["No"]),
-        str(row["Nama Perusahaan"])[:22],
+        str(row["Nama Perusahaan"])[:24],
         str(row["NIB"])[:13],
-        str(row["Alamat"])[:20],
+        str(row["Alamat"])[:22],
         str(row["No. Telepon"])[:14],
-        str(row["Email"])[:18],
+        str(row["Email"])[:19],
         str(row["Jumlah Pekerja"]),
         str(row["PP"])[:9],
         str(row["PKB"])[:9],
         str(row["LKS Bipartit"])[:9],
         str(row["SP/SB"])[:9],
-        str(row["BPJS"])[:14],
-        str(row["Perselisihan"])[:16],
+        str(row["BPJS"])[:9],
+        str(row["Perselisihan"])[:17],
         str(row["PHK"])[:14],
         str(row["Pembinaan"])[:16],
         str(row["Status"])[:11],
@@ -163,7 +167,7 @@ def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
         "C",
         "C",
         "C",
-        "L",
+        "C",
         "L",
         "L",
         "L",
@@ -176,6 +180,7 @@ def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
   return bytes(pdf.output())
 
 
+# Ambil SELURUH data dari Supabase tanpa batas 1.000 baris
 def load_data():
   try:
     all_data = []
@@ -209,7 +214,7 @@ if "edit_perusahaan_id" not in st.session_state:
   st.session_state.edit_perusahaan_id = None
 
 # ==========================================
-# MODE EDIT CEPAT DI TAB YANG SAMA
+# MODE EDIT CEPAT DI TAB YANG SAMA (TANPA BUKA JENDELA BARU)
 # ==========================================
 if st.session_state.edit_perusahaan_id is not None and not df_raw.empty:
   id_target = st.session_state.edit_perusahaan_id
@@ -285,12 +290,11 @@ if st.session_state.edit_perusahaan_id is not None and not df_raw.empty:
           if row_edit["sp_sb"] in opsi_ada
           else 0,
       )
+      bpjs_awal = normalisasi_bpjs(row_edit.get("bpjs", "Belum"))
       u_bpjs = ek5.selectbox(
           "BPJS",
           opsi_bpjs,
-          index=opsi_bpjs.index(row_edit["bpjs"])
-          if row_edit["bpjs"] in opsi_bpjs
-          else 0,
+          index=opsi_bpjs.index(bpjs_awal),
       )
 
       st.markdown("**Catatan Kasus & Pembinaan**")
@@ -411,6 +415,9 @@ with tab1:
 
     if filter_status != "Semua":
       df_tampil = df_tampil[df_tampil["status"] == filter_status]
+
+    # Selaraskan tampilan kolom BPJS menjadi 'Sudah' / 'Belum'
+    df_tampil["bpjs"] = df_tampil["bpjs"].apply(normalisasi_bpjs)
 
     df_tampil = df_tampil.reset_index(drop=True)
     if "No" in df_tampil.columns:
@@ -786,7 +793,7 @@ with tab3:
                 "pkb": "Tidak Ada",
                 "lks_bipartit": "Tidak Ada",
                 "sp_sb": "Tidak Ada",
-                "bpjs": "Belum Terdaftar",
+                "bpjs": "Belum",
                 "perselisihan": "",
                 "phk": "",
                 "pembinaan": "",
@@ -886,12 +893,11 @@ with tab4:
           if row_edit["sp_sb"] in opsi_ada
           else 0,
       )
+      bpjs_tab4_awal = normalisasi_bpjs(row_edit.get("bpjs", "Belum"))
       u_bpjs = ek5.selectbox(
           "BPJS",
           opsi_bpjs,
-          index=opsi_bpjs.index(row_edit["bpjs"])
-          if row_edit["bpjs"] in opsi_bpjs
-          else 0,
+          index=opsi_bpjs.index(bpjs_tab4_awal),
       )
 
       st.markdown("**Catatan Kasus & Pembinaan**")
