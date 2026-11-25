@@ -68,9 +68,9 @@ def load_all_data():
 df_perusahaan, df_pengaduan = load_all_data()
 
 # ==========================================
-# FILTER DATA (OPSIONAL)
+# FILTER DATA (TERMASUK TAHUN 2020 - 2035)
 # ==========================================
-with st.expander("🔍 Filter Data Tampilan", expanded=False):
+with st.expander("🔍 Filter Data Tampilan", expanded=True):
   f_col1, f_col2 = st.columns(2)
 
   status_perusahaan_opsi = ["Semua Status Perusahaan"]
@@ -82,16 +82,13 @@ with st.expander("🔍 Filter Data Tampilan", expanded=False):
       "Filter Status Perusahaan (Indikator 1, 2, 3, 5):", status_perusahaan_opsi
   )
 
-  tahun_opsi = ["Semua Tahun"]
+  # Daftar pilihan tahun dari 2020 sampai 2035
+  tahun_opsi = ["Semua Tahun"] + [str(t) for t in range(2020, 2036)]
   if not df_pengaduan.empty and "tanggal_masuk" in df_pengaduan.columns:
     df_pengaduan["tahun"] = pd.to_datetime(
         df_pengaduan["tanggal_masuk"], errors="coerce"
     ).dt.year
-    tahun_valid = sorted(
-        df_pengaduan["tahun"].dropna().astype(int).unique().tolist(),
-        reverse=True,
-    )
-    tahun_opsi += [str(t) for t in tahun_valid]
+
   pilih_tahun = f_col2.selectbox(
       "Filter Tahun Pengaduan (Indikator 4):", tahun_opsi
   )
@@ -105,12 +102,11 @@ if (
   df_p_filtered = df_p_filtered[df_p_filtered["status"] == pilih_status_p]
 
 df_k_filtered = df_pengaduan.copy()
-if (
-    not df_k_filtered.empty
-    and pilih_tahun != "Semua Tahun"
-    and "tahun" in df_k_filtered.columns
-):
-  df_k_filtered = df_k_filtered[df_k_filtered["tahun"] == int(pilih_tahun)]
+if not df_k_filtered.empty and pilih_tahun != "Semua Tahun":
+  if "tahun" in df_k_filtered.columns:
+    df_k_filtered = df_k_filtered[df_k_filtered["tahun"] == int(pilih_tahun)]
+  else:
+    df_k_filtered = df_k_filtered.iloc[0:0]
 
 # ==========================================
 # HITUNG 5 INDIKATOR UTAMA
