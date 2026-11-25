@@ -38,7 +38,7 @@ def safe_str(val):
   return str(val) if val is not None and str(val) != "None" else ""
 
 
-# Konversi nilai BPJS lama (jika ada di database) agar tetap cocok dengan opsi 'Sudah' / 'Belum'
+# Konversi nilai BPJS lama (jika ada di database) agar cocok dengan opsi 'Sudah' / 'Belum'
 def normalisasi_bpjs(val):
   s = safe_str(val).strip()
   if s in ["Sudah", "Terdaftar Lengkap (Kesehatan & TK)", "Sebagian"]:
@@ -364,14 +364,15 @@ if st.session_state.edit_perusahaan_id is not None and not df_raw.empty:
     tutup_mode_edit()
 
 # ==========================================
-# TAMPILAN UTAMA (5 TAB)
+# TAMPILAN UTAMA (6 TAB)
 # ==========================================
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📋 Daftar Perusahaan",
     "➕ Tambah Perusahaan",
     "📤 Impor Excel",
     "✏️ Edit Data",
     "🗑️ Hapus Data",
+    "🔍 Cek Duplikat",
 ])
 
 # ==========================================
@@ -976,3 +977,89 @@ with tab5:
         st.error(f"Gagal menghapus data: {e}")
   else:
     st.info("Tidak ada data untuk dihapus.")
+
+# ==========================================
+# TAB 6: CEK & BERSIHKAN NAMA PERUSAHAAN DOBEL
+# ==========================================
+with tab6:
+  st.subheader("Pengecekan Nama Perusahaan Ganda (Duplikat)")
+
+  if not df_raw.empty and "nama_perusahaan" in df_raw.columns:
+    df_cek = df_raw.copy()
+    df_cek["nama_norm"] = (
+        df_cek["nama_perusahaan"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .str.lower()
+        .str.replace(r"\s+", " ", regex=True)
+    )
+
+    duplikat_mask = df_cek.duplicated(subset=["nama_norm"], keep=False) & (
+        df_cek["nama_norm"] != ""
+    )
+    df_dobel = df_cek[duplikat_mask].sort_values(
+        by=["nama_norm", "id"], ascending=[True, True]
+    )
+
+    if df_dobel.empty:
+      st.success("✅ Tidak ditemukan nama perusahaan yang dobel di database.")
+    else:
+      jml_kelompok = df_dobel["nama_norm"].nunique()
+      st.warning(
+          f"⚠️ Ditemukan **{jml_kelompok}** nama perusahaan yang ganda"
+          f" (total **{len(df_dobel)}** baris data). Periksa detail di bawah"
+          " sebelum menghapus baris duplikat."
+      )
+
+      kolom_tampil_dobel = [
+          "id",
+          "nama_perusahaan",
+          "nib",
+          "alamat",
+          "no_telp",
+          "jumlah_pekerja",
+          "pp",
+          "pkb",
+          "lks_bipartit",
+          "bpjs",
+          "status",
+      ]
+      kolom_ada = [c for c in kolom_tampil_dobel if c in df_dobel.columns]
+      st.dataframe(
+          df_dobel[kolom_ada],
+          use_container_width=True,
+          hide_index=True,
+      )
+
+      st.markdown("---")
+      st.markdown("**Hapus Baris Duplikat Tertentu:**")
+
+      opsi_hapus_dobel = {
+          f"ID {row['id']} | {row['nama_perusahaan']} (NIB: {row.get('nib') or '-'}, Pekerja: {row.get('jumlah_pekerja') or 0}, PP: {row.get('pp') or '-'})": (
+              row["id"]
+          )
+          for _, row in df_dobel.iterrows()
+      }
+
+      pilih_dobel_hapus = st.selectbox(
+          "Pilih baris duplikat yang ingin dihapus (sisakan 1 data yang paling"
+          " lengkap):",
+          list(opsi_hapus_dobel.keys()),
+          key="select_hapus_duplikat",
+      )
+
+      if st.button(
+          "🗑️ Hapus Baris Duplikat Terpilih",
+          type="primary",
+          key="btn_hapus_duplikat",
+      ):
+        try:
+          id_del = opsi_hapus_dobel[pilih_dobel_hapus]
+          supabase.table("tabel_perusahaan").delete().eq("id", id_del).execute()
+          st.success(f"Baris duplikat (ID {id_del}) berhasil dihapus!")
+          st.rerun()
+        except Exception as e:
+          st.error(f"Gagal menghapus data duplikat: {e}")
+  else:
+    st.info("Belum ada data perusahaan di database.")
