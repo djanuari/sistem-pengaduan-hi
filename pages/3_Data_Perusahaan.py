@@ -41,7 +41,7 @@ def safe_str(val):
   return str(val) if val is not None and str(val) != "None" else ""
 
 
-# Fungsi Pembuat PDF Landscape A4
+# Fungsi Pembuat PDF Landscape A4 (16 Kolom)
 def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
   pdf = FPDF(orientation="L", unit="mm", format="A4")
   pdf.set_auto_page_break(auto=True, margin=12)
@@ -66,27 +66,32 @@ def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
   )
   pdf.ln(4)
 
+  # Total lebar = 277 mm (pas untuk kertas A4 Landscape margin 10mm)
   col_widths = [
-      8,
-      32,
-      20,
-      30,
-      13,
-      14,
-      14,
-      16,
-      14,
-      22,
+      7,
+      26,
+      17,
       24,
+      18,
       22,
-      28,
+      11,
+      12,
+      12,
+      14,
+      12,
+      19,
       20,
+      18,
+      20,
+      15,
   ]
   headers = [
       "No",
       "Nama Perusahaan",
       "NIB",
       "Alamat",
+      "No. Telp",
+      "Email",
       "Pekerja",
       "PP",
       "PKB",
@@ -100,14 +105,14 @@ def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
   ]
 
   def draw_table_header():
-    pdf.set_font("Helvetica", "B", 6.5)
+    pdf.set_font("Helvetica", "B", 6)
     pdf.set_fill_color(44, 62, 80)
     pdf.set_text_color(255, 255, 255)
     for w, h in zip(col_widths, headers):
       pdf.cell(w, 7, h, border=1, align="C", fill=True)
     pdf.ln()
     pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Helvetica", "", 6.5)
+    pdf.set_font("Helvetica", "", 6)
 
   draw_table_header()
 
@@ -118,19 +123,21 @@ def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
 
     row_vals = [
         str(row["No"]),
-        str(row["Nama Perusahaan"])[:26],
-        str(row["NIB"])[:15],
-        str(row["Alamat"])[:24],
+        str(row["Nama Perusahaan"])[:22],
+        str(row["NIB"])[:13],
+        str(row["Alamat"])[:20],
+        str(row["No. Telepon"])[:14],
+        str(row["Email"])[:18],
         str(row["Jumlah Pekerja"]),
-        str(row["PP"])[:10],
-        str(row["PKB"])[:10],
-        str(row["LKS Bipartit"])[:10],
-        str(row["SP/SB"])[:10],
-        str(row["BPJS"])[:16],
-        str(row["Perselisihan"])[:18],
-        str(row["PHK"])[:16],
-        str(row["Pembinaan"])[:22],
-        str(row["Status"])[:14],
+        str(row["PP"])[:9],
+        str(row["PKB"])[:9],
+        str(row["LKS Bipartit"])[:9],
+        str(row["SP/SB"])[:9],
+        str(row["BPJS"])[:14],
+        str(row["Perselisihan"])[:16],
+        str(row["PHK"])[:14],
+        str(row["Pembinaan"])[:16],
+        str(row["Status"])[:11],
     ]
     row_vals = [v.encode("latin-1", "replace").decode("latin-1") for v in row_vals]
 
@@ -142,6 +149,8 @@ def generate_pdf_perusahaan(df: pd.DataFrame) -> bytes:
         "C",
         "L",
         "C",
+        "L",
+        "L",
         "L",
         "R",
         "C",
@@ -192,9 +201,14 @@ with tab1:
   st.subheader("Rekapitulasi Data Perusahaan")
 
   if not df_raw.empty:
+    # Pastikan kolom baru ada meskipun data lama bernilai null
+    for col_cek in ["no_telp", "email"]:
+      if col_cek not in df_raw.columns:
+        df_raw[col_cek] = ""
+
     c_cari1, c_cari2 = st.columns([2, 1])
     kata_kunci = c_cari1.text_input(
-        "🔍 Cari Nama Perusahaan / NIB / Alamat:", ""
+        "🔍 Cari Nama Perusahaan / NIB / Alamat / Email / No. Telepon:", ""
     )
     filter_status = c_cari2.selectbox("Filter Status:", ["Semua"] + opsi_status)
 
@@ -206,6 +220,8 @@ with tab1:
           .str.contains(kata_kunci, case=False)
           | df_tampil["nib"].fillna("").str.contains(kata_kunci, case=False)
           | df_tampil["alamat"].fillna("").str.contains(kata_kunci, case=False)
+          | df_tampil["no_telp"].fillna("").str.contains(kata_kunci, case=False)
+          | df_tampil["email"].fillna("").str.contains(kata_kunci, case=False)
       )
       df_tampil = df_tampil[mask]
 
@@ -220,6 +236,8 @@ with tab1:
         "nama_perusahaan": "Nama Perusahaan",
         "nib": "NIB",
         "alamat": "Alamat",
+        "no_telp": "No. Telepon",
+        "email": "Email",
         "jumlah_pekerja": "Jumlah Pekerja",
         "pp": "PP",
         "pkb": "PKB",
@@ -293,9 +311,13 @@ with tab2:
     nama_perusahaan = c1.text_input("Nama Perusahaan *")
     nib = c2.text_input("NIB (Nomor Induk Berusaha)")
 
-    c3, c4 = st.columns([2, 1])
-    alamat = c3.text_area("Alamat Perusahaan")
-    jumlah_pekerja = c4.number_input("Jumlah Pekerja", min_value=0, step=1)
+    c3, c4 = st.columns(2)
+    no_telp = c3.text_input("Nomor Telepon")
+    email = c4.text_input("Email Perusahaan")
+
+    c5, c6 = st.columns([2, 1])
+    alamat = c5.text_area("Alamat Perusahaan")
+    jumlah_pekerja = c6.number_input("Jumlah Pekerja", min_value=0, step=1)
 
     st.markdown("**Kelengkapan Perangkat Hubungan Industrial**")
     k1, k2, k3, k4, k5 = st.columns(5)
@@ -327,6 +349,8 @@ with tab2:
             "nama_perusahaan": nama_perusahaan.strip(),
             "nib": nib.strip(),
             "alamat": alamat.strip(),
+            "no_telp": no_telp.strip(),
+            "email": email.strip(),
             "jumlah_pekerja": int(jumlah_pekerja),
             "pp": pp,
             "pkb": pkb,
@@ -354,16 +378,21 @@ with tab3:
   st.subheader("Impor Daftar Perusahaan dari File Excel")
   st.info(
       "Anda dapat mengunggah file Excel (`.xlsx` / `.xls`) yang **hanya"
-      " berisi kolom Nama Perusahaan saja**, maupun yang sudah memiliki kolom"
-      " tambahan lainnya. Kolom yang kosong akan otomatis diisi nilai standar."
+      " berisi kolom Nama Perusahaan saja**, atau sudah mencakup kolom"
+      " **Alamat**, **No. Telepon**, dan **Email** sekaligus."
   )
 
-  # Tombol unduh template sederhana
   df_template = pd.DataFrame({
       "Nama Perusahaan": [
           "PT Contoh Sejahtera",
           "CV Maju Bersama",
-      ]
+      ],
+      "Alamat": [
+          "Jl. Jenderal Sudirman No. 10, Kendari",
+          "Jl. Ahmad Yani No. 25, Kendari",
+      ],
+      "No. Telepon": ["081234567890", "082345678901"],
+      "Email": ["hrd@contohsejahtera.co.id", "admin@majubersama.com"],
   })
   buf_tpl = io.BytesIO()
   with pd.ExcelWriter(buf_tpl, engine="openpyxl") as writer:
@@ -383,7 +412,6 @@ with tab3:
   if uploaded_excel is not None:
     try:
       df_up = pd.read_excel(uploaded_excel)
-      # Hapus baris yang seluruhnya kosong
       df_up = df_up.dropna(how="all")
 
       if df_up.empty:
@@ -392,7 +420,6 @@ with tab3:
         st.write(f"Ditemukan **{len(df_up)}** baris data pada file:")
         st.dataframe(df_up.head(10), use_container_width=True)
 
-        # Pilih kolom mana di Excel yang berisi Nama Perusahaan
         kolom_excel = list(df_up.columns)
         default_idx = 0
         for i, col in enumerate(kolom_excel):
@@ -434,7 +461,6 @@ with tab3:
 
             existing_names.add(nama_val.lower())
 
-            # Fungsi bantu membaca kolom opsional jika kebetulan ada di file Excel
             def ambil_kolom(kandidat_nama, default_val=""):
               for c in df_up.columns:
                 if str(c).strip().lower() in kandidat_nama:
@@ -454,7 +480,21 @@ with tab3:
             records_to_insert.append({
                 "nama_perusahaan": nama_val,
                 "nib": ambil_kolom(["nib"], ""),
-                "alamat": ambil_kolom(["alamat"], ""),
+                "alamat": ambil_kolom(["alamat", "address"], ""),
+                "no_telp": ambil_kolom(
+                    [
+                        "no. telepon",
+                        "no telepon",
+                        "nomor telepon",
+                        "telepon",
+                        "telp",
+                        "no_telp",
+                        "hp",
+                        "kontak",
+                    ],
+                    "",
+                ),
+                "email": ambil_kolom(["email", "e-mail", "surel"], ""),
                 "jumlah_pekerja": jml_pekerja_int,
                 "pp": ambil_kolom(["pp"], "Tidak Ada"),
                 "pkb": ambil_kolom(["pkb"], "Tidak Ada"),
@@ -470,7 +510,6 @@ with tab3:
             })
 
           if records_to_insert:
-            # Simpan per batch 200 baris agar cepat dan stabil
             batch_size = 200
             for i in range(0, len(records_to_insert), batch_size):
               supabase.table("tabel_perusahaan").insert(
@@ -516,9 +555,17 @@ with tab4:
       )
       u_nib = ec2.text_input("NIB", value=safe_str(row_edit["nib"]))
 
-      ec3, ec4 = st.columns([2, 1])
-      u_alamat = ec3.text_area("Alamat", value=safe_str(row_edit["alamat"]))
-      u_pekerja = ec4.number_input(
+      ec3, ec4 = st.columns(2)
+      u_telp = ec3.text_input(
+          "Nomor Telepon", value=safe_str(row_edit.get("no_telp", ""))
+      )
+      u_email = ec4.text_input(
+          "Email Perusahaan", value=safe_str(row_edit.get("email", ""))
+      )
+
+      ec5, ec6 = st.columns([2, 1])
+      u_alamat = ec5.text_area("Alamat", value=safe_str(row_edit["alamat"]))
+      u_pekerja = ec6.number_input(
           "Jumlah Pekerja",
           min_value=0,
           step=1,
@@ -591,6 +638,8 @@ with tab4:
                 "nama_perusahaan": u_nama.strip(),
                 "nib": u_nib.strip(),
                 "alamat": u_alamat.strip(),
+                "no_telp": u_telp.strip(),
+                "email": u_email.strip(),
                 "jumlah_pekerja": int(u_pekerja),
                 "pp": u_pp,
                 "pkb": u_pkb,
